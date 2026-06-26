@@ -12,12 +12,19 @@ The React 19 + Vite + TypeScript application has been successfully built and is 
 
 ## Test Credentials
 
-| Role | Email | Password | Expected RLS Behavior |
-|------|-------|----------|----------------------|
-| **Admin** | `admin@test.com` | `Test@123` | ✅ Can create sites (RLS allows) |
-| **Office Manager** | `manager@test.com` | `Test@123` | ✅ Can create sites (RLS allows) |
-| **Supervisor** | `supervisor@test.com` | `Test@123` | ❌ Cannot create sites (RLS blocks) |
-| **Invalid** | `supervisor@test.com` | `wrongpass` | ❌ Login fails with "Invalid email or password" |
+Source: `supabase/seed.sql` (local development seed data)
+
+| Role | Name | Email | Password | UUID | Assigned Sites | Wage Visibility |
+|------|------|-------|----------|------|----------------|-----------------|
+| **Admin** | Rajesh Kumar | `admin@constructionapp.local` | `devpassword123` | `a0000000-0000-0000-0000-000000000001` | All sites | Full |
+| **Office Manager** | Meena Sharma | `meena@constructionapp.local` | `devpassword123` | `b0000000-0000-0000-0000-000000000002` | All sites | Full |
+| **Supervisor** | Vikram Singh | `vikram@constructionapp.local` | `devpassword123` | `c0000000-0000-0000-0000-000000000003` | Site A only | ❌ **Disabled** |
+| **Supervisor** | Anil Patil | `anil@constructionapp.local` | `devpassword123` | `d0000000-0000-0000-0000-000000000004` | Sites A & B | ✅ **Site A only** |
+| **Invalid** | — | `any@email.com` | `wrongpassword` | — | — | Login fails |
+
+**Note:** Vikram and Anil are designed to test the wage-visibility toggle. Vikram has no wage visibility on Site A. Anil has wage visibility on Site A, but NOT on Site B.
+
+---
 
 ---
 
@@ -122,11 +129,20 @@ src/
 
 ## Environment Variables
 
-Create `.env.local` file:
+Create `.env.local` file (pointing to local Supabase instance):
+
+```bash
+# Local Supabase (from `npx supabase status`)
+VITE_SUPABASE_URL=http://127.0.0.1:54321
+VITE_SUPABASE_ANON_KEY=sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH
 ```
-VITE_SUPABASE_URL=https://avphveuppaezjspvdfpv.supabase.co
-VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2cGh2ZXVwcGFlempzcHZkZnB2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA1NTcyNjQsImV4cCI6MjA2NjEzMzI2NH0.EihUQtvlBCocA6iWdQXpBPEbXu6Pp8uMrlg1ULkoz80
+
+To get the correct key for your local instance:
+```bash
+npx supabase status
 ```
+
+**IMPORTANT:** The previous `.env.local` pointed to `https://avphveuppaezjspvdfpv.supabase.co` which was likely a placeholder/non-existent remote project. The local Supabase instance at `http://127.0.0.1:54321` is what's actually running.
 
 ---
 
