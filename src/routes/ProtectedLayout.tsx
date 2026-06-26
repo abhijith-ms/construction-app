@@ -3,7 +3,7 @@ import { Outlet, useNavigate, NavLink } from "react-router-dom";
 import { useAuthStore } from "@/stores/authStore";
 import { Button } from "@/components/ui/button";
 import { Toaster } from "sonner";
-import { Loader2, LogOut, Building2, LayoutDashboard, ClipboardList } from "lucide-react";
+import { Loader2, LogOut, Building2, LayoutDashboard, ClipboardList, Users, CalendarCheck, Briefcase, UserCheck, IndianRupee, Receipt } from "lucide-react";
 
 export function ProtectedLayout() {
   const navigate = useNavigate();
@@ -66,6 +66,30 @@ export function ProtectedLayout() {
               <NavLink to="/sites" className={navLinkClass}>
                 <ClipboardList className="h-4 w-4" />
                 Sites
+              </NavLink>
+              <NavLink to="/labour" className={navLinkClass}>
+                <Users className="h-4 w-4" />
+                Labour
+              </NavLink>
+              <NavLink to="/attendance" className={navLinkClass}>
+                <CalendarCheck className="h-4 w-4" />
+                Labour Attendance
+              </NavLink>
+              <NavLink to="/staff" className={navLinkClass}>
+                <Briefcase className="h-4 w-4" />
+                Staff
+              </NavLink>
+              <NavLink to="/staff-attendance" className={navLinkClass}>
+                <UserCheck className="h-4 w-4" />
+                Staff Attendance
+              </NavLink>
+              <NavLink to="/expenses" className={navLinkClass}>
+                <Receipt className="h-4 w-4" />
+                Expenses
+              </NavLink>
+              <NavLink to="/payroll" className={navLinkClass}>
+                <IndianRupee className="h-4 w-4" />
+                Payroll
               </NavLink>
             </nav>
 

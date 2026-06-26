@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { supabase } from "@/lib/supabase";
+import { queryClient } from "@/main";
 import type { Tables } from "@/types/database";
 
 type Profile = Tables<"profiles">;
@@ -102,6 +103,18 @@ export const useAuthStore = create<AuthState>()(
             set({ user: userState, isAuthenticated: true });
             await get().fetchProfile(session.user.id);
           }
+
+          // Subscribe to auth state changes to clear cache on user change
+          supabase.auth.onAuthStateChange((event) => {
+            if (event === 'SIGNED_OUT') {
+              // Clear all cached queries when user signs out
+              queryClient.clear();
+            } else if (event === 'SIGNED_IN') {
+              // Clear cached data when a different user signs in
+              // This prevents showing previous user's data
+              queryClient.clear();
+            }
+          });
         } finally {
           set({ loading: false });
         }

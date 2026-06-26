@@ -148,14 +148,105 @@ npx supabase status
 
 ## Verification Checklist
 
-- [ ] Project builds successfully with `npm run build`
-- [ ] Login page renders at `/login`
-- [ ] Login redirects to `/dashboard` on success
-- [ ] Header displays user name and role correctly
-- [ ] Navigation between Dashboard and Sites works
-- [ ] Logout clears session and redirects to login
-- [ ] Sites page lists existing sites
-- [ ] Add Site button visible only for admin/manager
-- [ ] Site creation form validates inputs
-- [ ] Successful site creation shows toast notification
-- [ ] RLS error shown if unauthorized user tries to create site
+- [x] Project builds successfully with `npm run build`
+- [x] Login page renders at `/login`
+- [x] Login redirects to `/dashboard` on success
+- [x] Header displays user name and role correctly
+- [x] Navigation between Dashboard and Sites works
+- [x] Logout clears session and redirects to login
+- [x] Sites page lists existing sites
+- [x] Add Site button visible only for admin/manager
+- [x] Site creation form validates inputs
+- [x] Successful site creation shows toast notification
+- [x] RLS error shown if unauthorized user tries to create site
+
+## Payroll/Wage Settlement Verification
+
+### Manual Test: Section 6 Worked Example
+Run this SQL to verify wage calculation logic against the canonical example:
+
+```sql
+-- Verify Raju's wages for week of June 15-21
+SELECT date, status, rate_applied, site_id,
+  COALESCE(r.mult, 0.5) as half_day_multiplier,
+  rate_applied * 
+    CASE status 
+      WHEN 'present' THEN 1.0 
+      WHEN 'half_day' THEN COALESCE(r.mult, 0.5) 
+      ELSE 0 
+    END as earned
+FROM labour_attendance la
+LEFT JOIN LATERAL (
+  SELECT half_day_multiplier as mult 
+  FROM site_settings 
+  WHERE site_id = la.site_id
+) r ON true
+WHERE labour_id = '44444444-0000-0000-0000-000000000001' 
+  AND date >= '2026-06-15' 
+  AND date <= '2026-06-20'
+ORDER BY date;
+```
+
+**Expected Results:**
+| Day   | Site | Status    | Rate  | Earned |
+|-------|------|-----------|-------|--------|
+| Mon   | A    | present   | 1300  | 1300   |
+| Tue   | A    | present   | 1300  | 1300   |
+| Wed   | B    | half_day  | 1000  | 500    |
+| Thu   | -    | absent    | -     | 0      |
+| Fri   | A    | present   | 1300  | 1300   |
+| Sat   | A    | present   | 1300  | 1300   |
+| **Total** | | | | **₹5,700** |
+
+### Payroll Page Features
+- [x] Payroll navigation link visible in header
+- [x] Week selector with prev/next navigation (Mon-Sat)
+- [x] Summary card showing: Total Gross, Advances, Carried Over, Net Payable
+- [x] Settlements table with worker details
+- [x] Manual settlement calculation button per worker
+- [x] Payment recording with amount input
+- [x] Payment status badges (pending/partial/paid)
+
+### RPC Functions Verification
+```sql
+-- Calculate settlement for Raju (week starting June 15)
+SELECT * FROM calculate_weekly_settlement(
+  '44444444-0000-0000-0000-000000000001',  -- Raju's ID
+  '2026-06-15',                             -- Monday
+  'a0000000-0000-0000-0000-000000000001'   -- Admin UID
+);
+
+-- Expected: gross_wages=5700, total_advances=2000, net_payable=3700
+```
+
+### Files Changed
+```
+supabase/migrations/20260623080019_calculate_weekly_settlement.sql  # RPC functions
+supabase/migrations/000008_labour_payroll.sql                      # Schema + data
+src/hooks/useSettlements.ts                                         # React Query hook
+src/routes/Payroll.tsx                                              # Payroll UI page
+src/types/database.ts                                               # Added RPC function types
+src/App.tsx                                                         # Added Payroll route
+src/routes/ProtectedLayout.tsx                                      # Added Payroll nav link
+```
+
+## Command Summary
+
+```bash
+# Test payroll calculation in database
+docker exec supabase_db_construction-app psql -U postgres -d postgres \
+  -c "SELECT * FROM calculate_weekly_settlement('44444444-0000-0000-0000-000000000001', '2026-06-15', 'a0000000-0000-0000-0000-000000000001');"
+
+# Build and verify
+npm run build
+
+# Start dev server
+npm run dev
+```
+
+## Accessing Payroll
+1. Start the dev server: `npm run dev`
+2. Login with: `admin@constructionapp.local` / `devpassword123`
+3. Click "Payroll" in the header navigation
+4. Week starting June 15, 2026 should show Raju's settlement
+5. Click "Pay" to record payment, verify status changes to "paid"

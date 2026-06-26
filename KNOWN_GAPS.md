@@ -20,6 +20,18 @@ This file tracks design debt and deferred decisions that were made deliberately 
 
 ---
 
+## OPEN — Partial payment UI deferred
+
+**Where:** `src/routes/Payroll.tsx`, `mark_settlement_paid()` DB function
+
+**What:** The DB function supports partial payments (`payment_status = 'partial'` when `amount_paid < net_payable`), but the UI only has a full "Mark as Paid" button. No amount input field exists yet.
+
+**When to fix:** When the client confirms they need partial payment tracking. At that point, add an amount input to the Pay button flow in Payroll.tsx.
+
+**Status:** Deferred intentionally.
+
+---
+
 ## RESOLVED — rate_applied exposure via direct base table query (accepted, not a gap)
 
 **Where:** `labour_attendance` table RLS policies + `labour_attendance_secure` view (migrations 015, 016, 017)

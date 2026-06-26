@@ -152,8 +152,8 @@ These are the entities established so far. Do not invent additional fields or re
 | Record advances | ✓ | ✓ | ✗ |
 | Record pay receipts | ✓ | ✓ | ✗ |
 | View per-site P&L | ✓ | ✓ | ✗ |
-| Record expenses | ✓ | ✓ | ✗ |
-| View all-company financials | ✓ | ✗ | ✗ |
+| Record expenses | ✓ | ✓ | Own site(s) only — site expenses only |
+| View all-company financials / Office expenses | ✓ | ✓ | ✗ |
 | Update live stock levels | ✓ | ✓ | ✗ |
 | Create / edit users | ✓ | ✗ | ✗ |
 | Assign supervisor to site(s) | ✓ | ✗ | ✗ |

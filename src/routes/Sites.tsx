@@ -273,9 +273,6 @@ export function Sites() {
                     <tr key={site.id} className="hover:bg-slate-50">
                       <td className="py-3 px-4">
                         <div className="font-medium">{site.name}</div>
-                        {site.address && (
-                          <div className="text-sm text-slate-500">{site.address}</div>
-                        )}
                       </td>
                       <td className="py-3 px-4">
                         <div>{site.client_name || "N/A"}</div>
