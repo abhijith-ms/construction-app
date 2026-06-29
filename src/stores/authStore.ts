@@ -57,6 +57,8 @@ export const useAuthStore = create<AuthState>()(
           await get().fetchProfile(data.user.id);
           
           return { error: null };
+        } catch (error) {
+          return { error: error instanceof Error ? error : new Error(String(error)) };
         } finally {
           set({ loading: false });
         }

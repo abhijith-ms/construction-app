@@ -159,7 +159,7 @@ export function Staff() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Office Staff</h1>
           <p className="text-muted-foreground">
@@ -167,7 +167,7 @@ export function Staff() {
           </p>
         </div>
         {canManage && (
-          <Button onClick={handleOpenDialog}>
+          <Button onClick={handleOpenDialog} className="w-full sm:w-auto min-h-11">
             <Plus className="h-4 w-4 mr-2" />
             Add Staff
           </Button>
@@ -204,68 +204,133 @@ export function Staff() {
               )}
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Monthly Salary</TableHead>
-                  <TableHead>Status</TableHead>
-                  {canManage && <TableHead className="w-[100px]">Actions</TableHead>}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              {/* Mobile Cards View */}
+              <div className="md:hidden space-y-3">
                 {(staffList as unknown as Staff[]).map((staff) => (
-                  <TableRow key={staff.id}>
-                    <TableCell className="font-medium">{staff.full_name}</TableCell>
-                    <TableCell>{staff.email || "—"}</TableCell>
-                    <TableCell className="capitalize">{staff.role}</TableCell>
-                    <TableCell>
-                      {new Intl.NumberFormat("en-IN", {
-                        style: "currency",
-                        currency: "INR",
-                        maximumFractionDigits: 0,
-                      }).format(staff.monthly_salary)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={staff.is_active ? "default" : "secondary"}
-                        className={
-                          staff.is_active
-                            ? "bg-green-100 text-green-700 hover:bg-green-100"
-                            : "bg-slate-100 text-slate-500 hover:bg-slate-100"
-                        }
-                      >
-                        {staff.is_active ? "Active" : "Inactive"}
-                      </Badge>
-                    </TableCell>
-                    {canManage && (
-                      <TableCell>
-                        <div className="flex items-center gap-2">
+                  <Card key={staff.id} className="min-h-11">
+                    <CardContent className="p-4 space-y-3">
+                      <div className="flex items-start justify-between">
+                        <div className="min-h-11 flex flex-col justify-center">
+                          <div className="font-medium text-slate-900">{staff.full_name}</div>
+                          <div className="text-sm text-slate-500 capitalize">{staff.role}</div>
+                        </div>
+                        <Badge
+                          variant={staff.is_active ? "default" : "secondary"}
+                          className={
+                            staff.is_active
+                              ? "bg-green-100 text-green-700 hover:bg-green-100"
+                              : "bg-slate-100 text-slate-500 hover:bg-slate-100"
+                          }
+                        >
+                          {staff.is_active ? "Active" : "Inactive"}
+                        </Badge>
+                      </div>
+                      <div className="space-y-1 text-sm">
+                        {staff.email && (
+                          <div className="text-slate-600">{staff.email}</div>
+                        )}
+                        <div className="font-mono font-medium text-slate-900">
+                          {new Intl.NumberFormat("en-IN", {
+                            style: "currency",
+                            currency: "INR",
+                            maximumFractionDigits: 0,
+                          }).format(staff.monthly_salary)}
+                        </div>
+                      </div>
+                      {canManage && (
+                        <div className="flex items-center gap-2 pt-2 border-t">
                           <Button
                             variant="ghost"
-                            size="icon"
+                            size="sm"
                             onClick={() => handleEdit(staff)}
+                            className="min-h-11 flex-1"
                           >
-                            <Pencil className="h-4 w-4" />
+                            <Pencil className="h-4 w-4 mr-2" />
+                            Edit
                           </Button>
                           <Button
                             variant="ghost"
-                            size="icon"
-                            onClick={() =>
-                              handleDeactivate(staff.id, staff.is_active)
-                            }
+                            size="sm"
+                            onClick={() => handleDeactivate(staff.id, staff.is_active)}
+                            className="min-h-11 flex-1"
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            {staff.is_active ? "Deactivate" : "Activate"}
                           </Button>
                         </div>
-                      </TableCell>
-                    )}
-                  </TableRow>
+                      )}
+                    </CardContent>
+                  </Card>
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+
+              {/* Desktop Table View */}
+              <div className="hidden md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Monthly Salary</TableHead>
+                      <TableHead>Status</TableHead>
+                      {canManage && <TableHead className="w-[100px]">Actions</TableHead>}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(staffList as unknown as Staff[]).map((staff) => (
+                      <TableRow key={staff.id}>
+                        <TableCell className="font-medium">{staff.full_name}</TableCell>
+                        <TableCell>{staff.email || "—"}</TableCell>
+                        <TableCell className="capitalize">{staff.role}</TableCell>
+                        <TableCell>
+                          {new Intl.NumberFormat("en-IN", {
+                            style: "currency",
+                            currency: "INR",
+                            maximumFractionDigits: 0,
+                          }).format(staff.monthly_salary)}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={staff.is_active ? "default" : "secondary"}
+                            className={
+                              staff.is_active
+                                ? "bg-green-100 text-green-700 hover:bg-green-100"
+                                : "bg-slate-100 text-slate-500 hover:bg-slate-100"
+                            }
+                          >
+                            {staff.is_active ? "Active" : "Inactive"}
+                          </Badge>
+                        </TableCell>
+                        {canManage && (
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleEdit(staff)}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() =>
+                                  handleDeactivate(staff.id, staff.is_active)
+                                }
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

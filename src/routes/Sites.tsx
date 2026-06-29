@@ -128,7 +128,7 @@ export function Sites() {
         {canCreate && (
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="flex items-center gap-2">
+              <Button className="flex items-center gap-2 w-full sm:w-auto min-h-11">
                 <Plus className="h-4 w-4" />
                 Add Site
               </Button>
@@ -247,55 +247,94 @@ export function Sites() {
               )}
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-3 px-4 font-semibold text-slate-700">
-                      Site Name
-                    </th>
-                    <th className="text-left py-3 px-4 font-semibold text-slate-700">
-                      Client
-                    </th>
-                    <th className="text-left py-3 px-4 font-semibold text-slate-700">
-                      Status
-                    </th>
-                    <th className="text-right py-3 px-4 font-semibold text-slate-700">
-                      Budget
-                    </th>
-                    <th className="text-left py-3 px-4 font-semibold text-slate-700">
-                      Start Date
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {sites?.map((site) => (
-                    <tr key={site.id} className="hover:bg-slate-50">
-                      <td className="py-3 px-4">
-                        <div className="font-medium">{site.name}</div>
-                      </td>
-                      <td className="py-3 px-4">
-                        <div>{site.client_name || "N/A"}</div>
-                        {site.client_phone && (
-                          <div className="text-sm text-slate-500">
-                            {site.client_phone}
+            <>
+              {/* Mobile Cards View */}
+              <div className="md:hidden space-y-3">
+                {sites?.map((site) => (
+                  <Card key={site.id} className="min-h-11">
+                    <CardContent className="p-4 space-y-2">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <div className="font-medium text-slate-900 min-h-11 flex items-center">
+                            {site.name}
                           </div>
-                        )}
-                      </td>
-                      <td className="py-3 px-4">
+                          <div className="text-sm text-slate-500">
+                            {site.client_name || "N/A"}
+                          </div>
+                          {site.client_phone && (
+                            <div className="text-sm text-slate-500">
+                              {site.client_phone}
+                            </div>
+                          )}
+                        </div>
                         <StatusBadge status={site.status} />
-                      </td>
-                      <td className="py-3 px-4 text-right font-mono">
-                        {formatCurrency(site.budget)}
-                      </td>
-                      <td className="py-3 px-4 text-sm">
-                        {formatDate(site.start_date)}
-                      </td>
+                      </div>
+                      <div className="flex items-center justify-between pt-2 border-t">
+                        <span className="text-sm text-slate-500">Budget</span>
+                        <span className="font-mono font-medium">
+                          {formatCurrency(site.budget)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-slate-500">Start Date</span>
+                        <span className="text-sm">{formatDate(site.start_date)}</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-3 px-4 font-semibold text-slate-700">
+                        Site Name
+                      </th>
+                      <th className="text-left py-3 px-4 font-semibold text-slate-700">
+                        Client
+                      </th>
+                      <th className="text-left py-3 px-4 font-semibold text-slate-700">
+                        Status
+                      </th>
+                      <th className="text-right py-3 px-4 font-semibold text-slate-700">
+                        Budget
+                      </th>
+                      <th className="text-left py-3 px-4 font-semibold text-slate-700">
+                        Start Date
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y">
+                    {sites?.map((site) => (
+                      <tr key={site.id} className="hover:bg-slate-50">
+                        <td className="py-3 px-4">
+                          <div className="font-medium">{site.name}</div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div>{site.client_name || "N/A"}</div>
+                          {site.client_phone && (
+                            <div className="text-sm text-slate-500">
+                              {site.client_phone}
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-3 px-4">
+                          <StatusBadge status={site.status} />
+                        </td>
+                        <td className="py-3 px-4 text-right font-mono">
+                          {formatCurrency(site.budget)}
+                        </td>
+                        <td className="py-3 px-4 text-sm">
+                          {formatDate(site.start_date)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

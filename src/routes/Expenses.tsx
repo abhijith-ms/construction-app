@@ -314,7 +314,7 @@ function SiteExpensesTab({
 
       {/* Expenses List */}
       <Card>
-        <div className="flex items-center justify-between p-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between p-6 gap-4">
           <CardHeader className="p-0">
             <CardTitle className="flex items-center gap-2">
               <Building2 className="h-5 w-5" />
@@ -325,7 +325,7 @@ function SiteExpensesTab({
             </CardDescription>
           </CardHeader>
           {canManage && (
-            <Button onClick={handleOpenDialog}>
+            <Button onClick={handleOpenDialog} className="w-full md:w-auto">
               <Plus className="h-4 w-4 mr-2" />
               Add Expense
             </Button>
@@ -345,67 +345,136 @@ function SiteExpensesTab({
               )}
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Site</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Work Type</TableHead>
-              <TableHead className="text-right">Amount</TableHead>
-              {canEdit && <TableHead className="w-[100px]">Actions</TableHead>}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              {/* Desktop Table */}
+              <div className="hidden md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Site</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead>Description</TableHead>
+                      <TableHead>Work Type</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
+                      {canEdit && <TableHead className="w-[100px]">Actions</TableHead>}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {expenses.map((expense) => (
+                      <TableRow key={expense.id}>
+                        <TableCell>
+                          {format(parseISO(expense.date), "dd MMM yyyy")}
+                        </TableCell>
+                        <TableCell>
+                          {expense.site?.name || "—"}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="capitalize">
+                            {expense.category}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="max-w-[200px] truncate">
+                          {expense.description || "—"}
+                        </TableCell>
+                        <TableCell>{expense.work_type || "—"}</TableCell>
+                        <TableCell className="text-right font-medium">
+                          {new Intl.NumberFormat("en-IN", {
+                            style: "currency",
+                            currency: "INR",
+                            maximumFractionDigits: 0,
+                          }).format(Number(expense.amount))}
+                        </TableCell>
+                        {canEdit && (
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleEdit(expense)}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleDelete(expense.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile Cards */}
+              <div className="md:hidden space-y-4">
                 {expenses.map((expense) => (
-                  <TableRow key={expense.id}>
-                    <TableCell>
-                      {format(parseISO(expense.date), "dd MMM yyyy")}
-                    </TableCell>
-                    <TableCell>
-                      {expense.site?.name || "—"}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="capitalize">
-                        {expense.category}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="max-w-[200px] truncate">
-                      {expense.description || "—"}
-                    </TableCell>
-                    <TableCell>{expense.work_type || "—"}</TableCell>
-                    <TableCell className="text-right font-medium">
-                      {new Intl.NumberFormat("en-IN", {
-                        style: "currency",
-                        currency: "INR",
-                        maximumFractionDigits: 0,
-                      }).format(Number(expense.amount))}
-                    </TableCell>
-                    {canEdit && (
-                      <TableCell>
-                        <div className="flex items-center gap-2">
+                  <Card key={expense.id} className="overflow-hidden">
+                    <CardContent className="p-4 space-y-3">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <Badge variant="outline" className="capitalize mb-1">
+                            {expense.category}
+                          </Badge>
+                          <p className="text-xs text-muted-foreground">
+                            {format(parseISO(expense.date), "dd MMM yyyy")}
+                          </p>
+                        </div>
+                        <p className="text-xl font-bold">
+                          {new Intl.NumberFormat("en-IN", {
+                            style: "currency",
+                            currency: "INR",
+                            maximumFractionDigits: 0,
+                          }).format(Number(expense.amount))}
+                        </p>
+                      </div>
+                      <div className="text-sm">
+                        <span className="text-muted-foreground">Site:</span>{" "}
+                        <span className="font-medium">{expense.site?.name || "—"}</span>
+                      </div>
+                      {expense.description && (
+                        <p className="text-sm text-muted-foreground">
+                          {expense.description}
+                        </p>
+                      )}
+                      {expense.work_type && (
+                        <div className="text-sm">
+                          <span className="text-muted-foreground">Work Type:</span>{" "}
+                          <span>{expense.work_type}</span>
+                        </div>
+                      )}
+                      {canEdit && (
+                        <div className="flex items-center gap-2 pt-2 border-t">
                           <Button
                             variant="ghost"
-                            size="icon"
+                            size="sm"
+                            className="flex-1"
                             onClick={() => handleEdit(expense)}
                           >
-                            <Pencil className="h-4 w-4" />
+                            <Pencil className="h-4 w-4 mr-2" />
+                            Edit
                           </Button>
                           <Button
                             variant="ghost"
-                            size="icon"
+                            size="sm"
+                            className="flex-1 text-destructive"
                             onClick={() => handleDelete(expense.id)}
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
                           </Button>
                         </div>
-                      </TableCell>
-                    )}
-                  </TableRow>
+                      )}
+                    </CardContent>
+                  </Card>
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
@@ -645,7 +714,7 @@ function OfficeExpensesTab({ canManage }: { canManage: boolean }) {
 
       {/* Expenses List */}
       <Card>
-        <div className="flex items-center justify-between p-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between p-6 gap-4">
           <CardHeader className="p-0">
             <CardTitle className="flex items-center gap-2">
               <Home className="h-5 w-5" />
@@ -656,7 +725,7 @@ function OfficeExpensesTab({ canManage }: { canManage: boolean }) {
             </CardDescription>
           </CardHeader>
           {canManage && (
-            <Button onClick={handleOpenDialog}>
+            <Button onClick={handleOpenDialog} className="w-full md:w-auto">
               <Plus className="h-4 w-4 mr-2" />
               Add Expense
             </Button>
@@ -676,69 +745,136 @@ function OfficeExpensesTab({ canManage }: { canManage: boolean }) {
               )}
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
-                  <TableHead>Last Edited</TableHead>
-                  {canManage && <TableHead className="w-[100px]">Actions</TableHead>}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              {/* Desktop Table */}
+              <div className="hidden md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead>Description</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
+                      <TableHead>Last Edited</TableHead>
+                      {canManage && <TableHead className="w-[100px]">Actions</TableHead>}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {expenses.map((expense) => (
+                      <TableRow key={expense.id}>
+                        <TableCell>
+                          {format(parseISO(expense.date), "dd MMM yyyy")}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="capitalize">
+                            {expense.category}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="max-w-[200px] truncate">
+                          {expense.description || "—"}
+                        </TableCell>
+                        <TableCell className="text-right font-medium">
+                          {new Intl.NumberFormat("en-IN", {
+                            style: "currency",
+                            currency: "INR",
+                            maximumFractionDigits: 0,
+                          }).format(Number(expense.amount))}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {expense.last_editor?.full_name || "—"}
+                          <br />
+                          {expense.last_edited_at
+                            ? format(parseISO(expense.last_edited_at), "dd MMM yyyy")
+                            : ""}
+                        </TableCell>
+                        {canManage && (
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleEdit(expense)}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleDelete(expense.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile Cards */}
+              <div className="md:hidden space-y-4">
                 {expenses.map((expense) => (
-                  <TableRow key={expense.id}>
-                    <TableCell>
-                      {format(parseISO(expense.date), "dd MMM yyyy")}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="capitalize">
-                        {expense.category}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="max-w-[200px] truncate">
-                      {expense.description || "—"}
-                    </TableCell>
-                    <TableCell className="text-right font-medium">
-                      {new Intl.NumberFormat("en-IN", {
-                        style: "currency",
-                        currency: "INR",
-                        maximumFractionDigits: 0,
-                      }).format(Number(expense.amount))}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {expense.last_editor?.full_name || "—"}
-                      <br />
-                      {expense.last_edited_at
-                        ? format(parseISO(expense.last_edited_at), "dd MMM yyyy")
-                        : ""}
-                    </TableCell>
-                    {canManage && (
-                      <TableCell>
-                        <div className="flex items-center gap-2">
+                  <Card key={expense.id} className="overflow-hidden">
+                    <CardContent className="p-4 space-y-3">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <Badge variant="outline" className="capitalize mb-1">
+                            {expense.category}
+                          </Badge>
+                          <p className="text-xs text-muted-foreground">
+                            {format(parseISO(expense.date), "dd MMM yyyy")}
+                          </p>
+                        </div>
+                        <p className="text-xl font-bold">
+                          {new Intl.NumberFormat("en-IN", {
+                            style: "currency",
+                            currency: "INR",
+                            maximumFractionDigits: 0,
+                          }).format(Number(expense.amount))}
+                        </p>
+                      </div>
+                      {expense.description && (
+                        <p className="text-sm text-muted-foreground">
+                          {expense.description}
+                        </p>
+                      )}
+                      <div className="text-sm text-muted-foreground">
+                        <span>Last edited by {expense.last_editor?.full_name || "—"}</span>
+                        {expense.last_edited_at && (
+                          <span className="ml-1">
+                            on {format(parseISO(expense.last_edited_at), "dd MMM yyyy")}
+                          </span>
+                        )}
+                      </div>
+                      {canManage && (
+                        <div className="flex items-center gap-2 pt-2 border-t">
                           <Button
                             variant="ghost"
-                            size="icon"
+                            size="sm"
+                            className="flex-1"
                             onClick={() => handleEdit(expense)}
                           >
-                            <Pencil className="h-4 w-4" />
+                            <Pencil className="h-4 w-4 mr-2" />
+                            Edit
                           </Button>
                           <Button
                             variant="ghost"
-                            size="icon"
+                            size="sm"
+                            className="flex-1 text-destructive"
                             onClick={() => handleDelete(expense.id)}
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
                           </Button>
                         </div>
-                      </TableCell>
-                    )}
-                  </TableRow>
+                      )}
+                    </CardContent>
+                  </Card>
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

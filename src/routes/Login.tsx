@@ -39,17 +39,26 @@ export function Login() {
 
   const onSubmit = async (data: LoginFormData) => {
     setAuthError("");
-    const { error } = await signIn(data.email, data.password);
+    try {
+      const { error } = await signIn(data.email, data.password);
 
-    if (error) {
-      // Generic error message as requested
-      setAuthError("Invalid email or password");
+      if (error) {
+        // Generic error message as requested
+        setAuthError("Invalid email or password");
+        toast.error("Login failed", {
+          description: "Invalid email or password",
+        });
+      } else {
+        toast.success("Login successful");
+        navigate("/dashboard");
+      }
+    } catch (err) {
+      // Catch any unexpected errors (e.g., from browser extensions interfering)
+      console.error("Unexpected login error:", err);
+      setAuthError("Login failed. Please try again.");
       toast.error("Login failed", {
-        description: "Invalid email or password",
+        description: "An unexpected error occurred. Please try again.",
       });
-    } else {
-      toast.success("Login successful");
-      navigate("/dashboard");
     }
   };
 

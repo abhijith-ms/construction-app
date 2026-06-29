@@ -46,4 +46,101 @@ This file tracks design debt and deferred decisions that were made deliberately 
 
 ---
 
+## COMPLETED — Supplier Management UI
+
+**Where:** New route `/suppliers`, hooks in `src/hooks/useSuppliers.ts`, `src/hooks/useCreateSupplier.ts`, `src/hooks/useUpdateSupplier.ts`
+
+**What:** Implemented basic supplier management with:
+- `supplier_balances` view in migration `20260623080022` showing running balance owed per supplier
+- List view with table showing: name, contact, materials, active status, balance owed (INR formatted, red when positive)
+- Add Supplier dialog with Zod validation
+- Edit Supplier dialog to update all fields plus toggle active/inactive
+- Role-gated to Admin and Office Manager only (page shows "no permission" if accessed by Supervisor)
+- Navigation link in header (Truck icon)
+
+**Verified:** Build passes, TypeScript strict mode clean
+
+**Status:** COMPLETED on 2026-06-26
+
+---
+
+## COMPLETED — Supplier Detail / Purchase Orders Page
+
+**Where:** New route `/suppliers/:id`, hooks `useSingleSupplier.ts`, `usePurchaseOrders.ts`, `useCreatePurchaseOrder.ts`, `useUpdatePurchaseOrder.ts`
+
+**What:** Implemented supplier drill-down page at `/suppliers/:id` with:
+- Displays supplier info: name, contact details, materials supplied, balance owed
+- Purchase Orders table showing: order date, site name, description, amount (INR formatted), status with color-coded badges
+- Status badges: Pending (yellow), Approved (blue), Received (green), Cancelled (red)
+- Add Purchase Order dialog with site dropdown, description, amount, date, status
+- Edit Purchase Order dialog (inline editing via pencil icon)
+- Sites dropdown populated from the sites table
+- Row navigation on Suppliers list page (cursor-pointer + click to navigate)
+- Edit button uses `e.stopPropagation()` to prevent row navigation when clicking
+- Role-gated to Admin and Office Manager only
+- Back button to return to suppliers list
+
+**Database support:** Uses existing `purchase_orders` table with `supplier_id` FK
+
+**Verified:** Build passes, TypeScript strict mode clean, no runtime errors
+
+**Status:** COMPLETED on 2026-06-26
+
+---
+
+## COMPLETED — Bills Inline under Purchase Orders
+
+**Where:** Hook files `useBills.ts`, `useCreateBill.ts`, and updates to `SupplierDetail.tsx`
+
+**What:** Implemented inline bills display nested under purchase orders:
+- `useBills.ts` — Fetches bills for a `purchase_order_id` via TanStack Query
+- `useCreateBill.ts` — Creates bill with `last_edited_by` set to current user ID
+- Row-level expand/collapse toggle (chevron icon) on each PO row
+- Expanded section shows inline table with: Bill Number, Bill Date, Amount (₹)
+- "Add Bill" button per PO (hidden when PO status is 'cancelled')
+- Add Bill dialog with: bill_number (optional), bill_date (defaults today), amount (required)
+- Bills are append-only (no edit/delete per spec — financial records)
+- Mutually exclusive expansion (only one PO can be expanded at a time)
+- INR formatting for amounts
+
+**Hook File Coverage:**
+
+| File | Purpose | Covered |
+|------|---------|--------|
+| useBills.ts | Fetch bills per PO | ✅ |
+| useCreateBill.ts | Create bill with last_edited_by | ✅ |
+
+**Verified:** Build passes, TypeScript strict mode clean
+
+**Status:** COMPLETED on 2026-06-26
+
+---
+
+## COMPLETED — Supplier Payments
+
+**Where:** Hook files `useSupplierPayments.ts`, `useCreateSupplierPayment.ts`, `useBillsForSupplier.ts`, and updates to `SupplierDetail.tsx`
+
+**What:** Implemented payments per-supplier with the following features:
+- `useBillsForSupplier.ts` — Fetches all bills for a supplier across all POs (for bill dropdown selection)
+- `useSupplierPayments.ts` — Fetches payments for a supplier with joined bill info (bill_number, bill_date, PO description)
+- `useCreateSupplierPayment.ts` — Creates payment with `last_edited_by` set to current user, invalidates supplier data on success
+- Payments section in SupplierDetail.tsx below Purchase Orders:
+  - Table columns: Payment Date, Bill (displays "Bill #[number]" or "Bill on [date]"), Amount (₹), Payment Mode
+  - "Add Payment" button (Admin/Office Manager only)
+  - Add Payment dialog with Zod validation (`amount > 0`)
+  - Bill dropdown: Shows all bills for this supplier, formatted as "[PO Description] — Bill #[number] ([date])" or "[PO Description] — Bill ([date])"
+  - Amount field (₹ positive, validated)
+  - Payment date (defaults today)
+  - Payment mode dropdown: Cash, GPay, Bank Transfer
+  - `last_edited_by` set to current user ID on insert
+- All-caps payment mode names displayed: "Cash", "GPay", "Bank Transfer"
+- INR formatting for amounts
+- Append-only (no edit/delete) for financial records
+
+**Verified:** Build passes, TypeScript strict mode clean
+
+**Status:** COMPLETED on 2026-06-26
+
+---
+
 <!-- Add future deferred decisions below this line, newest at the top, using the same format: Where / What / Risk / When to fix / Status -->

@@ -32,16 +32,16 @@ function formatDateRange(weekStart: string): string {
 }
 
 function getWeekRange(date: Date) {
-  const dayOfWeek = date.getDay();
-  const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+  const day = date.getDay(); // 0=Sunday, 1=Monday...
+  const diff = day === 0 ? -6 : 1 - day; // if Sunday, go back 6 days; otherwise go to Monday
   const monday = new Date(date);
-  monday.setDate(date.getDate() - daysFromMonday);
+  monday.setDate(date.getDate() + diff);
   monday.setHours(0, 0, 0, 0);
   const saturday = new Date(monday);
   saturday.setDate(monday.getDate() + 5);
   return {
-    weekStart: monday.toISOString().split('T')[0],
-    weekEnd: saturday.toISOString().split('T')[0],
+    weekStart: format(monday, 'yyyy-MM-dd'),
+    weekEnd: format(saturday, 'yyyy-MM-dd'),
   };
 }
 
@@ -175,8 +175,8 @@ export default function Payroll() {
         </CardContent>
       </Card>
 
-      {/* Settlements Table */}
-      <Card>
+      {/* Settlements Table - Desktop */}
+      <Card className="hidden md:block">
         <CardHeader>
           <CardTitle>Settlements</CardTitle>
         </CardHeader>
@@ -267,6 +267,92 @@ export default function Payroll() {
         </CardContent>
       </Card>
 
+      {/* Settlements Cards - Mobile */}
+      <div className="md:hidden space-y-4">
+        {isLoading ? (
+          <div className="text-center py-8 text-muted-foreground">Loading...</div>
+        ) : settlementsWithLabour.length > 0 ? (
+          settlementsWithLabour.map((settlement) => (
+            <Card key={settlement.id}>
+              <CardContent className="p-4 space-y-3">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="font-medium">{settlement.labour?.full_name || 'Unknown'}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {settlement.labour?.default_work_category || 'N/A'}
+                    </p>
+                  </div>
+                  <span
+                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                      settlement.payment_status === 'paid'
+                        ? 'bg-green-100 text-green-800'
+                        : settlement.payment_status === 'partial'
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : 'bg-gray-100 text-gray-800'
+                    }`}
+                  >
+                    {settlement.payment_status}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Gross</p>
+                    <p className="font-medium">{formatCurrency(settlement.gross_wages)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Advances</p>
+                    <p className="font-medium text-orange-600">
+                      {settlement.total_advances > 0
+                        ? `-${formatCurrency(settlement.total_advances)}`
+                        : '-'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Carried Over</p>
+                    <p className="font-medium text-red-600">
+                      {settlement.carried_over_due > 0
+                        ? formatCurrency(settlement.carried_over_due)
+                        : '-'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Net Payable</p>
+                    <p className="text-lg font-bold text-green-600">
+                      {formatCurrency(settlement.net_payable)}
+                    </p>
+                  </div>
+                </div>
+                {settlement.net_payable > (settlement.amount_paid || 0) &&
+                  settlement.payment_status !== 'pending' && (
+                    <p className="text-xs text-orange-600">
+                      Due: {formatCurrency(settlement.net_payable - (settlement.amount_paid || 0))}
+                    </p>
+                  )}
+                <div className="pt-2">
+                  {settlement.payment_status !== 'paid' ? (
+                    <Button
+                      className="w-full"
+                      onClick={() => markSettlementsPaid(settlement.id)}
+                    >
+                      Mark as Paid
+                    </Button>
+                  ) : (
+                    <div className="flex items-center justify-center gap-2 text-green-600">
+                      <CheckCircle className="h-5 w-5" />
+                      <span className="text-sm font-medium">Paid</span>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        ) : (
+          <div className="text-center py-8 text-muted-foreground">
+            No settlements calculated for this week
+          </div>
+        )}
+      </div>
+
       {/* Labour without settlements */}
       {labourWithoutSettlements.length > 0 && (
         <Card>
@@ -284,6 +370,7 @@ export default function Payroll() {
                   key={labour.id}
                   variant="outline"
                   onClick={() => calculateSettlement(labour.id)}
+                  className="md:w-auto w-full"
                 >
                   {labour.full_name}
                 </Button>

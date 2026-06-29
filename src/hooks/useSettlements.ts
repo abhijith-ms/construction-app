@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { format } from 'date-fns';
 import { supabase } from '@/lib/supabase';
 import type { Tables } from '@/types/database';
 
@@ -10,12 +11,10 @@ interface WeeklyRange {
 }
 
 function getWeekRange(date: Date): WeeklyRange {
-  const dayOfWeek = date.getDay();
-  // Monday is 1, Sunday is 0 - convert to Monday = 0
-  const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-
+  const day = date.getDay(); // 0=Sunday, 1=Monday...
+  const diff = day === 0 ? -6 : 1 - day; // if Sunday, go back 6 days; otherwise go to Monday
   const monday = new Date(date);
-  monday.setDate(date.getDate() - daysFromMonday);
+  monday.setDate(date.getDate() + diff);
   monday.setHours(0, 0, 0, 0);
 
   const saturday = new Date(monday);
@@ -23,8 +22,8 @@ function getWeekRange(date: Date): WeeklyRange {
   saturday.setHours(23, 59, 59, 999);
 
   return {
-    weekStart: monday.toISOString().split('T')[0],
-    weekEnd: saturday.toISOString().split('T')[0],
+    weekStart: format(monday, 'yyyy-MM-dd'),
+    weekEnd: format(saturday, 'yyyy-MM-dd'),
   };
 }
 
