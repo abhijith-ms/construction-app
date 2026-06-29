@@ -40,7 +40,6 @@ type SiteFormData = z.infer<typeof siteSchema>;
 // Status badge component
 function StatusBadge({ status }: { status: string | null }) {
   const statusStyles: Record<string, string> = {
-    planning: "bg-blue-100 text-blue-700",
     active: "bg-green-100 text-green-700",
     on_hold: "bg-amber-100 text-amber-700",
     completed: "bg-slate-100 text-slate-700",
@@ -49,10 +48,10 @@ function StatusBadge({ status }: { status: string | null }) {
   return (
     <span
       className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${
-        statusStyles[status || "planning"] || "bg-slate-100 text-slate-700"
+        statusStyles[status || "active"] || "bg-slate-100 text-slate-700"
       }`}
     >
-      {status || "planning"}
+      {status || "active"}
     </span>
   );
 }
@@ -95,7 +94,7 @@ export function Sites() {
       client_phone: data.client_phone || null,
       budget: budgetValue,
       start_date: data.start_date || null,
-      status: "planning",
+      status: "active",
     };
 
     createSite(siteData, {
