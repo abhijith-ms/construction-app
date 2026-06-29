@@ -43,6 +43,7 @@ export const useAuthStore = create<AuthState>()(
           });
 
           if (error) {
+            console.error("Supabase signIn error:", error);
             return { error };
           }
 
@@ -58,6 +59,7 @@ export const useAuthStore = create<AuthState>()(
           
           return { error: null };
         } catch (error) {
+          console.error("SignIn caught exception:", error);
           return { error: error instanceof Error ? error : new Error(String(error)) };
         } finally {
           set({ loading: false });

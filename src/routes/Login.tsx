@@ -24,10 +24,14 @@ const loginSchema = z.object({
 
 type LoginFormData = z.infer<typeof loginSchema>;
 
+// 10 second timeout for sign-in operations
+const SIGN_IN_TIMEOUT = 10000;
+
 export function Login() {
   const navigate = useNavigate();
-  const { signIn, loading } = useAuthStore();
+  const { signIn } = useAuthStore();
   const [authError, setAuthError] = useState<string>("");
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const {
     register,
@@ -39,8 +43,18 @@ export function Login() {
 
   const onSubmit = async (data: LoginFormData) => {
     setAuthError("");
+    setIsLoading(true);
+
+    // Timeout promise for sign-in operation
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("Connection timed out. Please try again.")), SIGN_IN_TIMEOUT)
+    );
+
     try {
-      const { error } = await signIn(data.email, data.password);
+      const { error } = await Promise.race([
+        signIn(data.email, data.password),
+        timeoutPromise,
+      ]) as Awaited<ReturnType<typeof signIn>>;
 
       if (error) {
         // Generic error message as requested
@@ -53,12 +67,16 @@ export function Login() {
         navigate("/dashboard");
       }
     } catch (err) {
-      // Catch any unexpected errors (e.g., from browser extensions interfering)
-      console.error("Unexpected login error:", err);
-      setAuthError("Login failed. Please try again.");
+      // Catch timeout errors and any unexpected errors
+      const errorMessage = err instanceof Error ? err.message : "Login failed. Please try again.";
+      console.error("Sign in error:", err);
+      setAuthError(errorMessage);
       toast.error("Login failed", {
-        description: "An unexpected error occurred. Please try again.",
+        description: errorMessage,
       });
+    } finally {
+      // Always reset loading state
+      setIsLoading(false);
     }
   };
 
@@ -105,8 +123,8 @@ export function Login() {
               <p className="text-sm text-destructive text-center">{authError}</p>
             )}
 
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? (
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Signing in...
