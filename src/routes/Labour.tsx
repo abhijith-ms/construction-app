@@ -3,6 +3,7 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
+import { format } from "date-fns";
 import { useLabour } from "@/hooks/useLabour";
 import { useCreateLabour } from "@/hooks/useCreateLabour";
 import { useUpdateLabour, useDeactivateLabour } from "@/hooks/useUpdateLabour";
@@ -35,7 +36,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Loader2, Plus, Users, MoreHorizontal, Pencil, PowerOff, Power, IndianRupee, Wallet } from "lucide-react";
+import { Loader2, Plus, Users, MoreHorizontal, Pencil, PowerOff, Power, IndianRupee, Wallet, MapPin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   Sheet,
@@ -44,7 +45,21 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useLabourSiteAssignments } from "@/hooks/useLabourSiteAssignments";
+import { useCreateLabourSiteAssignment } from "@/hooks/useCreateLabourSiteAssignment";
+import { useEndLabourSiteAssignment } from "@/hooks/useEndLabourSiteAssignment";
+import type { LabourSiteAssignment } from "@/hooks/useLabourSiteAssignments";
+import type { Labour as LabourType } from "@/hooks/useLabour";
+import type { LabourAdvanceWithDetails } from "@/hooks/useLabourAdvances";
 
+type Labour = LabourType;
 
 const WORK_CATEGORIES = [
   "mason",
@@ -63,6 +78,27 @@ const labourSchema = z.object({
 });
 
 type LabourFormData = z.infer<typeof labourSchema>;
+
+// Zod schema for assignment form
+const assignmentSchema = z.object({
+  site_id: z.string().min(1, "Site is required"),
+  task_category: z.string().min(1, "Task category is required"),
+  daily_rate: z.string().min(1, "Daily rate is required").refine((val) => parseFloat(val) > 0, "Daily rate must be greater than 0"),
+  start_date: z.string().min(1, "Start date is required"),
+  notes: z.string().optional(),
+});
+
+type AssignmentFormData = z.infer<typeof assignmentSchema>;
+
+// Zod schema for advance form
+const advanceSchema = z.object({
+  site_id: z.string().min(1, "Site is required"),
+  amount: z.string().min(1, "Amount is required").refine((val) => parseFloat(val) > 0, "Amount must be greater than 0"),
+  date_given: z.string().min(1, "Date is required"),
+  notes: z.string().optional(),
+});
+
+type AdvanceFormData = z.infer<typeof advanceSchema>;
 
 // Format currency
 function formatCurrency(amount: number | null) {
@@ -98,10 +134,11 @@ export function Labour() {
   const [editingLabour, setEditingLabour] = useState<Labour | null>(null);
   const [advanceWorker, setAdvanceWorker] = useState<Labour | null>(null);
   const [isAdvanceOpen, setIsAdvanceOpen] = useState(false);
+  const [assignmentWorker, setAssignmentWorker] = useState<Labour | null>(null);
+  const [isAssignmentOpen, setIsAssignmentOpen] = useState(false);
 
   const { canViewWages } = useWagePermissions();
   const canManage = profile?.role === "admin" || profile?.role === "office_manager";
-  // Use useWagePermissions hook which checks supervisor_wage_permissions table
   const canViewRates = canViewWages;
 
   const {
@@ -118,7 +155,6 @@ export function Labour() {
     const rateValue = parseFloat(data.default_daily_rate);
     
     if (editingLabour) {
-      // Update existing labour
       updateLabour(
         {
           id: editingLabour.id,
@@ -144,7 +180,6 @@ export function Labour() {
         }
       );
     } else {
-      // Create new labour
       createLabour(
         {
           full_name: data.full_name,
@@ -178,10 +213,7 @@ export function Labour() {
   };
 
   const handleDeactivate = (id: string, currentStatus: boolean) => {
-    // The hook only handles deactivation (sets is_active: false)
-    // For reactivation, we need to use updateLabour
     if (currentStatus) {
-      // Deactivate
       deactivateLabour(id, {
         onSuccess: () => {
           toast.success("Labour deactivated");
@@ -193,7 +225,6 @@ export function Labour() {
         },
       });
     } else {
-      // Reactivate using updateLabour
       updateLabour(
         {
           id,
@@ -462,6 +493,15 @@ export function Labour() {
                                 Edit
                               </DropdownMenuItem>
                               <DropdownMenuItem
+                                onClick={() => {
+                                  setAssignmentWorker(worker);
+                                  setIsAssignmentOpen(true);
+                                }}
+                              >
+                                <MapPin className="h-4 w-4 mr-2" />
+                                Assignments
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setAdvanceWorker(worker);
@@ -537,6 +577,7 @@ export function Labour() {
                         </td>
                         <td className="py-3 px-4 text-sm">
                           {worker.phone || "N/A"}
+
                         </td>
                         {canViewRates && (
                           <td className="py-3 px-4 text-right font-mono">
@@ -561,6 +602,15 @@ export function Labour() {
                                 <DropdownMenuItem onClick={() => handleEdit(worker)}>
                                   <Pencil className="h-4 w-4 mr-2" />
                                   Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setAssignmentWorker(worker);
+                                    setIsAssignmentOpen(true);
+                                  }}
+                                >
+                                  <MapPin className="h-4 w-4 mr-2" />
+                                  Assignments
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
                                   onClick={() => {
@@ -602,6 +652,14 @@ export function Labour() {
         </CardContent>
       </Card>
 
+      {/* Assignments Sheet/Dialog */}
+      <AssignmentSheet
+        worker={assignmentWorker}
+        isOpen={isAssignmentOpen}
+        onOpenChange={setIsAssignmentOpen}
+        canViewRates={canViewRates}
+      />
+
       {/* Advances Sheet/Dialog */}
       <AdvanceSheet
         worker={advanceWorker}
@@ -612,29 +670,304 @@ export function Labour() {
   );
 }
 
-// Type import for Labour
-import type { Labour as LabourType } from "@/hooks/useLabour";
-import type { LabourAdvanceWithDetails } from "@/hooks/useLabourAdvances";
-type Labour = LabourType;
+// Assignment Sheet/Dialog Component
+function AssignmentSheet({
+  worker,
+  isOpen,
+  onOpenChange,
+  canViewRates,
+}: {
+  worker: Labour | null;
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  canViewRates: boolean;
+}) {
+  const { profile } = useAuthStore();
+  const { data: sites } = useSites();
+  const { data: assignments, isLoading, refetch } = useLabourSiteAssignments(worker?.id || null);
+  const { mutate: createAssignment, isPending: isCreating } = useCreateLabourSiteAssignment();
+  const { mutate: endAssignment, isPending: isEnding } = useEndLabourSiteAssignment();
+  const [showAddForm, setShowAddForm] = useState(false);
 
-// Import Select components
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  const {
+    register,
+    handleSubmit,
+    reset,
+    control,
+    formState: { errors },
+  } = useForm<AssignmentFormData>({
+    resolver: zodResolver(assignmentSchema),
+    defaultValues: {
+      start_date: new Date().toISOString().split("T")[0],
+      daily_rate: "",
+      site_id: "",
+      task_category: "",
+      notes: "",
+    },
+  });
 
-// Zod schema for advance form
-const advanceSchema = z.object({
-  site_id: z.string().min(1, "Site is required"),
-  amount: z.string().min(1, "Amount is required").refine((val) => parseFloat(val) > 0, "Amount must be greater than 0"),
-  date_given: z.string().min(1, "Date is required"),
-  notes: z.string().optional(),
-});
+  const onSubmit = (data: AssignmentFormData) => {
+    if (!worker || !profile?.id) return;
 
-type AdvanceFormData = z.infer<typeof advanceSchema>;
+    createAssignment(
+      {
+        labour_id: worker.id,
+        site_id: data.site_id,
+        task_category: data.task_category,
+        daily_rate: parseFloat(data.daily_rate),
+        start_date: data.start_date,
+        notes: data.notes || undefined,
+        assigned_by: profile.id,
+      },
+      {
+        onSuccess: () => {
+          toast.success("Assignment created successfully");
+          setShowAddForm(false);
+          reset();
+          refetch();
+        },
+        onError: (error) => {
+          toast.error("Failed to create assignment", {
+            description: error.message,
+          });
+        },
+      }
+    );
+  };
+
+  const handleEndAssignment = (assignment: LabourSiteAssignment) => {
+    const today = new Date().toISOString().split("T")[0];
+    endAssignment(
+      {
+        assignmentId: assignment.id,
+        labourId: assignment.labour_id,
+        siteId: assignment.site_id,
+        endDate: today,
+      },
+      {
+        onSuccess: () => {
+          toast.success("Assignment ended successfully");
+          refetch();
+        },
+        onError: (error) => {
+          toast.error("Failed to end assignment", {
+            description: error.message,
+          });
+        },
+      }
+    );
+  };
+
+  const isActive = (assignment: LabourSiteAssignment) => {
+    if (!assignment.end_date) return true;
+    const today = new Date().toISOString().split("T")[0];
+    return assignment.end_date >= today;
+  };
+
+  const renderContent = (isDesktop: boolean) => (
+    <>
+      {showAddForm ? (
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-slate-900">Site *</Label>
+            <Controller
+              name="site_id"
+              control={control}
+              render={({ field }) => (
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select site..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {sites?.map((site) => (
+                      <SelectItem key={site.id} value={site.id}>
+                        {site.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+            {errors.site_id && (
+              <p className="text-sm text-red-500">{errors.site_id.message}</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-slate-900">Task Category *</Label>
+            <Controller
+              name="task_category"
+              control={control}
+              render={({ field }) => (
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select category..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {WORK_CATEGORIES.map((category) => (
+                      <SelectItem key={category} value={category}>
+                        {category}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+            {errors.task_category && (
+              <p className="text-sm text-red-500">{errors.task_category.message}</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="daily_rate" className="text-sm font-medium text-slate-900">Daily Rate (₹) *</Label>
+            <Input
+              id="daily_rate"
+              type="number"
+              placeholder="e.g., 1300"
+              {...register("daily_rate")}
+            />
+            {errors.daily_rate && (
+              <p className="text-sm text-red-500">{errors.daily_rate.message}</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="start_date" className="text-sm font-medium text-slate-900">Start Date *</Label>
+            <Input
+              id="start_date"
+              type="date"
+              {...register("start_date")}
+            />
+            {errors.start_date && (
+              <p className="text-sm text-red-500">{errors.start_date.message}</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="notes" className="text-sm font-medium text-slate-900">Notes</Label>
+            <Input
+              id="notes"
+              placeholder="Optional notes..."
+              {...register("notes")}
+            />
+          </div>
+
+          <div className={`flex gap-2 pt-2 ${isDesktop ? "justify-end" : ""}`}>
+            <Button type="button" variant="outline" className={isDesktop ? "" : "flex-1"} onClick={() => setShowAddForm(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" className={isDesktop ? "" : "flex-1"} disabled={isCreating}>
+              {isCreating && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Save
+            </Button>
+          </div>
+        </form>
+      ) : (
+        <>
+          {isLoading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+            </div>
+          ) : assignments?.length === 0 ? (
+            <div className="text-center py-8 text-slate-500">
+              No site assignments yet.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {assignments?.map((assignment: LabourSiteAssignment) => (
+                <div key={assignment.id} className="border rounded-lg p-3">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <div className="font-medium">{assignment.site_name}</div>
+                      <div className="text-sm text-slate-500 capitalize">{assignment.task_category}</div>
+                      {canViewRates && (
+                        <div className="text-sm font-mono flex items-center gap-1 mt-1">
+                          <IndianRupee className="h-3 w-3" />
+                          {assignment.daily_rate.toLocaleString("en-IN")}/day
+                        </div>
+                      )}
+                      <div className="text-xs text-slate-400 mt-1">
+                        Started: {format(new Date(assignment.start_date), "dd MMM yyyy")}
+                      </div>
+                      {assignment.end_date && (
+                        <div className="text-xs text-slate-400">
+                          Ended: {format(new Date(assignment.end_date), "dd MMM yyyy")}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex flex-col items-end gap-2">
+                      {isActive(assignment) ? (
+                        <Badge className="bg-green-100 text-green-800">Active</Badge>
+                      ) : (
+                        <Badge variant="secondary">Ended</Badge>
+                      )}
+                      {isActive(assignment) && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleEndAssignment(assignment)}
+                          disabled={isEnding}
+                        >
+                          {isEnding && <Loader2 className="h-3 w-3 animate-spin mr-1" />}
+                          End
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                  {assignment.notes && (
+                    <div className="text-sm text-slate-600 mt-2">{assignment.notes}</div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          <Button className={isDesktop ? "w-fit" : "w-full"} onClick={() => setShowAddForm(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Assignment
+          </Button>
+        </>
+      )}
+    </>
+  );
+
+  return (
+    <>
+      {/* Mobile Sheet */}
+      <div className="md:hidden">
+        <Sheet open={isOpen} onOpenChange={onOpenChange}>
+          <SheetContent side="bottom" className="h-[85vh]">
+            <SheetHeader>
+              <SheetTitle>Site Assignments - {worker?.full_name}</SheetTitle>
+              <SheetDescription>
+                Manage site assignments and rates
+              </SheetDescription>
+            </SheetHeader>
+            <div className="mt-6 space-y-4">
+              {renderContent(false)}
+            </div>
+          </SheetContent>
+        </Sheet>
+      </div>
+
+      {/* Desktop Dialog */}
+      <div className="hidden md:block">
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+          <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Site Assignments - {worker?.full_name}</DialogTitle>
+              <DialogDescription>
+                Manage site assignments and rates
+              </DialogDescription>
+            </DialogHeader>
+            <div className="mt-4 space-y-4">
+              {renderContent(true)}
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </>
+  );
+}
 
 // Advance Sheet/Dialog Component
 function AdvanceSheet({
@@ -695,6 +1028,119 @@ function AdvanceSheet({
 
   const totalUnsettled = advances?.reduce((sum, adv) => sum + (adv.settlement_id ? 0 : Number(adv.amount)), 0) || 0;
 
+  const renderContent = (isDesktop: boolean) => (
+    <>
+      {showAddForm ? (
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-slate-900">Site *</Label>
+            <Controller
+              name="site_id"
+              control={control}
+              render={({ field }) => (
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select site..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {sites?.map((site) => (
+                      <SelectItem key={site.id} value={site.id}>
+                        {site.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+            {errors.site_id && (
+              <p className="text-sm text-red-500">{errors.site_id.message}</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="amount" className="text-sm font-medium text-slate-900">Amount (₹) *</Label>
+            <Input
+              id="amount"
+              type="number"
+              placeholder="e.g., 2000"
+              {...register("amount")}
+            />
+            {errors.amount && (
+              <p className="text-sm text-red-500">{errors.amount.message}</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="date_given" className="text-sm font-medium text-slate-900">Date *</Label>
+            <Input
+              id="date_given"
+              type="date"
+              {...register("date_given")}
+            />
+            {errors.date_given && (
+              <p className="text-sm text-red-500">{errors.date_given.message}</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="notes" className="text-sm font-medium text-slate-900">Notes</Label>
+            <Input
+              id="notes"
+              placeholder="Optional notes..."
+              {...register("notes")}
+            />
+          </div>
+
+          <div className={`flex gap-2 pt-2 ${isDesktop ? "justify-end" : ""}`}>
+            <Button type="button" variant="outline" className={isDesktop ? "" : "flex-1"} onClick={() => setShowAddForm(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" className={isDesktop ? "" : "flex-1"} disabled={isCreating}>
+              {isCreating && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Save
+            </Button>
+          </div>
+        </form>
+      ) : (
+        <>
+          {isLoading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+            </div>
+          ) : advances?.length === 0 ? (
+            <div className="text-center py-8 text-slate-500">
+              No advances recorded yet.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {advances?.map((advance: LabourAdvanceWithDetails) => (
+                <div key={advance.id} className="border rounded-lg p-3">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="font-medium">{formatCurrency(Number(advance.amount))}</div>
+                      <div className="text-sm text-slate-500">{advance.sites?.name}</div>
+                      <div className="text-sm text-slate-500">{new Date(advance.date_given).toLocaleDateString("en-IN")}</div>
+                    </div>
+                    <Badge variant={advance.settlement_id ? "secondary" : "outline"}>
+                      {advance.settlement_id ? "Settled" : "Unsettled"}
+                    </Badge>
+                  </div>
+                  {advance.notes && (
+                    <div className="text-sm text-slate-600 mt-2">{advance.notes}</div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          <Button className={isDesktop ? "w-fit" : "w-full"} onClick={() => setShowAddForm(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Advance
+          </Button>
+        </>
+      )}
+    </>
+  );
+
   return (
     <>
       {/* Mobile Sheet */}
@@ -708,114 +1154,7 @@ function AdvanceSheet({
               </SheetDescription>
             </SheetHeader>
             <div className="mt-6 space-y-4">
-              {showAddForm ? (
-                <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium text-slate-900">Site *</Label>
-                    <Controller
-                      name="site_id"
-                      control={control}
-                      render={({ field }) => (
-                        <Select value={field.value} onValueChange={field.onChange}>
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select site..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {sites?.map((site) => (
-                              <SelectItem key={site.id} value={site.id}>
-                                {site.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      )}
-                    />
-                    {errors.site_id && (
-                      <p className="text-sm text-red-500">{errors.site_id.message}</p>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="amount" className="text-sm font-medium text-slate-900">Amount (₹) *</Label>
-                    <Input
-                      id="amount"
-                      type="number"
-                      placeholder="e.g., 2000"
-                      {...register("amount")}
-                    />
-                    {errors.amount && (
-                      <p className="text-sm text-red-500">{errors.amount.message}</p>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="date_given" className="text-sm font-medium text-slate-900">Date *</Label>
-                    <Input
-                      id="date_given"
-                      type="date"
-                      {...register("date_given")}
-                    />
-                    {errors.date_given && (
-                      <p className="text-sm text-red-500">{errors.date_given.message}</p>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="notes" className="text-sm font-medium text-slate-900">Notes</Label>
-                    <Input
-                      id="notes"
-                      placeholder="Optional notes..."
-                      {...register("notes")}
-                    />
-                  </div>
-
-                  <div className="flex gap-2 pt-2">
-                    <Button type="button" variant="outline" className="flex-1" onClick={() => setShowAddForm(false)}>
-                      Cancel
-                    </Button>
-                    <Button type="submit" className="flex-1" disabled={isCreating}>
-                      {isCreating && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                      Save
-                    </Button>
-                  </div>
-                </form>
-              ) : (
-                <>
-                  {isLoading ? (
-                    <div className="flex justify-center py-8">
-                      <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
-                    </div>
-                  ) : advances?.length === 0 ? (
-                    <div className="text-center py-8 text-slate-500">
-                      No advances recorded yet.
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {advances?.map((advance: LabourAdvanceWithDetails) => (
-                        <div key={advance.id} className="border rounded-lg p-3">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <div className="font-medium">{formatCurrency(Number(advance.amount))}</div>
-                              <div className="text-sm text-slate-500">{advance.sites?.name}</div>
-                              <div className="text-sm text-slate-500">{new Date(advance.date_given).toLocaleDateString("en-IN")}</div>
-                            </div>
-                            <Badge variant={advance.settlement_id ? "secondary" : "outline"}>
-                              {advance.settlement_id ? "Settled" : "Unsettled"}
-                            </Badge>
-                          </div>
-                          {advance.notes && (
-                            <div className="text-sm text-slate-600 mt-2">{advance.notes}</div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  <Button className="w-full" onClick={() => setShowAddForm(true)}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Advance
-                  </Button>
-                </>
-              )}
+              {renderContent(false)}
             </div>
           </SheetContent>
         </Sheet>
@@ -832,114 +1171,7 @@ function AdvanceSheet({
               </DialogDescription>
             </DialogHeader>
             <div className="mt-4 space-y-4">
-              {showAddForm ? (
-                <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium text-slate-900">Site *</Label>
-                    <Controller
-                      name="site_id"
-                      control={control}
-                      render={({ field }) => (
-                        <Select value={field.value} onValueChange={field.onChange}>
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select site..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {sites?.map((site) => (
-                              <SelectItem key={site.id} value={site.id}>
-                                {site.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      )}
-                    />
-                    {errors.site_id && (
-                      <p className="text-sm text-red-500">{errors.site_id.message}</p>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="amount_desktop" className="text-sm font-medium text-slate-900">Amount (₹) *</Label>
-                    <Input
-                      id="amount_desktop"
-                      type="number"
-                      placeholder="e.g., 2000"
-                      {...register("amount")}
-                    />
-                    {errors.amount && (
-                      <p className="text-sm text-red-500">{errors.amount.message}</p>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="date_given_desktop" className="text-sm font-medium text-slate-900">Date *</Label>
-                    <Input
-                      id="date_given_desktop"
-                      type="date"
-                      {...register("date_given")}
-                    />
-                    {errors.date_given && (
-                      <p className="text-sm text-red-500">{errors.date_given.message}</p>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="notes_desktop" className="text-sm font-medium text-slate-900">Notes</Label>
-                    <Input
-                      id="notes_desktop"
-                      placeholder="Optional notes..."
-                      {...register("notes")}
-                    />
-                  </div>
-
-                  <div className="flex justify-end gap-2 pt-2">
-                    <Button type="button" variant="outline" onClick={() => setShowAddForm(false)}>
-                      Cancel
-                    </Button>
-                    <Button type="submit" disabled={isCreating}>
-                      {isCreating && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                      Save
-                    </Button>
-                  </div>
-                </form>
-              ) : (
-                <>
-                  {isLoading ? (
-                    <div className="flex justify-center py-8">
-                      <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
-                    </div>
-                  ) : advances?.length === 0 ? (
-                    <div className="text-center py-8 text-slate-500">
-                      No advances recorded yet.
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {advances?.map((advance: LabourAdvanceWithDetails) => (
-                        <div key={advance.id} className="border rounded-lg p-3">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <div className="font-medium">{formatCurrency(Number(advance.amount))}</div>
-                              <div className="text-sm text-slate-500">{advance.sites?.name}</div>
-                              <div className="text-sm text-slate-500">{new Date(advance.date_given).toLocaleDateString("en-IN")}</div>
-                            </div>
-                            <Badge variant={advance.settlement_id ? "secondary" : "outline"}>
-                              {advance.settlement_id ? "Settled" : "Unsettled"}
-                            </Badge>
-                          </div>
-                          {advance.notes && (
-                            <div className="text-sm text-slate-600 mt-2">{advance.notes}</div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  <Button className="w-full" onClick={() => setShowAddForm(true)}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Advance
-                  </Button>
-                </>
-              )}
+              {renderContent(true)}
             </div>
           </DialogContent>
         </Dialog>

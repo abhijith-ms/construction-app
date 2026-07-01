@@ -1,13 +1,72 @@
 import { useState } from 'react';
 import { format, addDays } from 'date-fns';
-import { ChevronLeft, ChevronRight, CheckCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CheckCircle, Wallet, CreditCard, Banknote, Landmark } from 'lucide-react';
 import { useSettlements, type Settlement } from '@/hooks/useSettlements';
 import { useLabour } from '@/hooks/useLabour';
 import { useAuthStore } from '@/stores/authStore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
+import { useIsMobile } from '@/hooks/use-mobile';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetFooter,
+} from '@/components/ui/sheet';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+
+const PAYMENT_MODES = [
+  { value: 'cash', label: 'Cash', icon: Banknote },
+  { value: 'upi', label: 'UPI', icon: CreditCard },
+  { value: 'bank_transfer', label: 'Bank Transfer', icon: Landmark },
+  { value: 'cheque', label: 'Cheque', icon: Wallet },
+] as const;
+
+type PaymentMode = typeof PAYMENT_MODES[number]['value'];
+
+interface PaymentModeBadgeProps {
+  mode: string | null;
+  reference: string | null;
+}
+
+function PaymentModeBadge({ mode, reference }: PaymentModeBadgeProps) {
+  if (!mode) return null;
+  
+  const modeConfig = PAYMENT_MODES.find(m => m.value === mode) || PAYMENT_MODES[0];
+  const Icon = modeConfig.icon;
+  
+  let referenceLabel = '';
+  if (reference) {
+    if (mode === 'upi') referenceLabel = ` (${reference})`;
+    else if (mode === 'cheque') referenceLabel = ` (${reference})`;
+    else if (mode === 'bank_transfer') referenceLabel = ` (${reference})`;
+  }
+  
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+      <Icon className="h-3 w-3" />
+      {modeConfig.label}{referenceLabel}
+    </span>
+  );
+}
 
 interface SettlementRow extends Settlement {
   labour?: {
@@ -47,7 +106,14 @@ function getWeekRange(date: Date) {
 
 export default function Payroll() {
   const { user } = useAuthStore();
+  const isMobile = useIsMobile();
   const [currentWeek, setCurrentWeek] = useState(new Date());
+  
+  // Payment dialog/sheet state
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [selectedSettlement, setSelectedSettlement] = useState<SettlementRow | null>(null);
+  const [paymentMode, setPaymentMode] = useState<PaymentMode>('cash');
+  const [paymentReference, setPaymentReference] = useState('');
 
   const { weekStart } = getWeekRange(currentWeek);
   const { data: settlements, isLoading, refetch } = useSettlements(currentWeek);
@@ -84,27 +150,121 @@ export default function Payroll() {
     }
   }
 
-  // Partial payment UI deferred — see KNOWN_GAPS.md
-  // The DB function mark_settlement_paid supports partial payments,
-  // but the UI only exposes full payment for now.
-  async function markSettlementsPaid(settlementId: string) {
-    if (!user) return;
+  function openPaymentDialog(settlement: SettlementRow) {
+    setSelectedSettlement(settlement);
+    setPaymentMode('cash');
+    setPaymentReference('');
+    setPaymentDialogOpen(true);
+  }
+
+  function closePaymentDialog() {
+    setPaymentDialogOpen(false);
+    setSelectedSettlement(null);
+    setPaymentMode('cash');
+    setPaymentReference('');
+  }
+
+  async function handleMarkPaid() {
+    if (!user || !selectedSettlement) return;
+
+    // Validate payment reference for non-cash modes
+    if (paymentMode !== 'cash' && !paymentReference.trim()) {
+      const modeLabels: Record<PaymentMode, string> = {
+        cash: 'Cash',
+        upi: 'UPI Transaction ID',
+        bank_transfer: 'Bank Reference',
+        cheque: 'Cheque Number',
+      };
+      toast.error(`${modeLabels[paymentMode]} is required`);
+      return;
+    }
 
     try {
       const { error } = await supabase.rpc('mark_settlement_paid', {
-        p_settlement_id: settlementId,
+        p_settlement_id: selectedSettlement.id,
         p_amount_paid: 0, // 0 means pay full net_payable
         p_marked_by: user.id,
+        p_payment_mode: paymentMode,
+        p_payment_reference: paymentMode === 'cash' ? null : paymentReference.trim() || null,
       });
 
       if (error) throw error;
       toast.success('Payment recorded successfully');
+      closePaymentDialog();
       refetch();
     } catch (err) {
       console.error('Error recording payment:', err);
       toast.error('Failed to record payment');
     }
   }
+
+  // Reference label based on payment mode
+  const getReferenceLabel = (mode: PaymentMode): string => {
+    switch (mode) {
+      case 'upi':
+        return 'UPI Transaction ID';
+      case 'bank_transfer':
+        return 'Bank Reference';
+      case 'cheque':
+        return 'Cheque Number';
+      default:
+        return 'Reference';
+    }
+  };
+
+  // Check if reference field is visible and required
+  const showReferenceField = paymentMode !== 'cash';
+
+  const PaymentDialogContent = (
+    <>
+      <div className="space-y-4 py-2">
+        {selectedSettlement && (
+          <div className="bg-slate-50 p-3 rounded-lg">
+            <p className="text-sm text-muted-foreground">Paying</p>
+            <p className="font-semibold">{selectedSettlement.labour?.full_name}</p>
+            <p className="text-lg font-bold text-green-600 mt-1">
+              {formatCurrency(selectedSettlement.net_payable)}
+            </p>
+          </div>
+        )}
+        
+        <div className="space-y-2">
+          <Label htmlFor="payment-mode">Payment Mode</Label>
+          <Select
+            value={paymentMode}
+            onValueChange={(value) => setPaymentMode(value as PaymentMode)}
+          >
+            <SelectTrigger id="payment-mode">
+              <SelectValue placeholder="Select payment mode" />
+            </SelectTrigger>
+            <SelectContent>
+              {PAYMENT_MODES.map((mode) => (
+                <SelectItem key={mode.value} value={mode.value}>
+                  <div className="flex items-center gap-2">
+                    <mode.icon className="h-4 w-4" />
+                    {mode.label}
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {showReferenceField && (
+          <div className="space-y-2">
+            <Label htmlFor="payment-reference">{getReferenceLabel(paymentMode)} *</Label>
+            <Input
+              id="payment-reference"
+              value={paymentReference}
+              onChange={(e) => setPaymentReference(e.target.value)}
+              placeholder={`Enter ${getReferenceLabel(paymentMode).toLowerCase()}`}
+            />
+            <p className="text-xs text-muted-foreground">Required for {paymentMode} payment</p>
+          </div>
+        )}
+      </div>
+    </>
+  );
 
   const settlementsWithLabour = (settlements || []) as SettlementRow[];
 
@@ -243,16 +403,24 @@ export default function Payroll() {
                           )}
                       </td>
                       <td className="py-3">
-                        {settlement.payment_status !== 'paid' ? (
-                          <Button
-                            size="sm"
-                            onClick={() => markSettlementsPaid(settlement.id)}
-                          >
-                            Mark as Paid
-                          </Button>
-                        ) : (
-                          <CheckCircle className="h-5 w-5 text-green-600" />
-                        )}
+                        <div className="space-y-1">
+                          {settlement.payment_status !== 'paid' ? (
+                            <Button
+                              size="sm"
+                              onClick={() => openPaymentDialog(settlement)}
+                            >
+                              Mark as Paid
+                            </Button>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <CheckCircle className="h-5 w-5 text-green-600" />
+                              <PaymentModeBadge 
+                                mode={settlement.payment_mode} 
+                                reference={settlement.payment_reference} 
+                              />
+                            </div>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -332,14 +500,20 @@ export default function Payroll() {
                   {settlement.payment_status !== 'paid' ? (
                     <Button
                       className="w-full"
-                      onClick={() => markSettlementsPaid(settlement.id)}
+                      onClick={() => openPaymentDialog(settlement)}
                     >
                       Mark as Paid
                     </Button>
                   ) : (
-                    <div className="flex items-center justify-center gap-2 text-green-600">
-                      <CheckCircle className="h-5 w-5" />
-                      <span className="text-sm font-medium">Paid</span>
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="flex items-center gap-2 text-green-600">
+                        <CheckCircle className="h-5 w-5" />
+                        <span className="text-sm font-medium">Paid</span>
+                      </div>
+                      <PaymentModeBadge 
+                        mode={settlement.payment_mode} 
+                        reference={settlement.payment_reference} 
+                      />
                     </div>
                   )}
                 </div>
@@ -378,6 +552,46 @@ export default function Payroll() {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Payment Dialog (Desktop) */}
+      {!isMobile && (
+        <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Record Payment</DialogTitle>
+            </DialogHeader>
+            {PaymentDialogContent}
+            <DialogFooter className="gap-2">
+              <Button variant="outline" onClick={closePaymentDialog}>
+                Cancel
+              </Button>
+              <Button onClick={handleMarkPaid}>
+                Confirm Pay
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Payment Sheet (Mobile) */}
+      {isMobile && (
+        <Sheet open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
+          <SheetContent side="bottom" className="h-[70vh]">
+            <SheetHeader>
+              <SheetTitle>Record Payment</SheetTitle>
+            </SheetHeader>
+            {PaymentDialogContent}
+            <SheetFooter className="gap-2 mt-4">
+              <Button variant="outline" onClick={closePaymentDialog} className="w-full">
+                Cancel
+              </Button>
+              <Button onClick={handleMarkPaid} className="w-full">
+                Confirm Pay
+              </Button>
+            </SheetFooter>
+          </SheetContent>
+        </Sheet>
       )}
     </div>
   );

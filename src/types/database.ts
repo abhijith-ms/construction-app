@@ -7,31 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       bills: {
@@ -256,6 +231,8 @@ export type Database = {
           last_edited_by: string
           net_payable: number
           paid_at: string | null
+          payment_mode: string | null
+          payment_reference: string | null
           payment_status: string
           site_id: string | null
           total_advances: number
@@ -273,6 +250,8 @@ export type Database = {
           last_edited_by: string
           net_payable: number
           paid_at?: string | null
+          payment_mode?: string | null
+          payment_reference?: string | null
           payment_status?: string
           site_id?: string | null
           total_advances?: number
@@ -290,6 +269,8 @@ export type Database = {
           last_edited_by?: string
           net_payable?: number
           paid_at?: string | null
+          payment_mode?: string | null
+          payment_reference?: string | null
           payment_status?: string
           site_id?: string | null
           total_advances?: number
@@ -313,6 +294,67 @@ export type Database = {
           },
           {
             foreignKeyName: "labour_settlements_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      labour_site_assignments: {
+        Row: {
+          assigned_by: string
+          created_at: string
+          daily_rate: number
+          end_date: string | null
+          id: string
+          labour_id: string
+          notes: string | null
+          site_id: string
+          start_date: string
+          task_category: string
+        }
+        Insert: {
+          assigned_by: string
+          created_at?: string
+          daily_rate: number
+          end_date?: string | null
+          id?: string
+          labour_id: string
+          notes?: string | null
+          site_id: string
+          start_date: string
+          task_category: string
+        }
+        Update: {
+          assigned_by?: string
+          created_at?: string
+          daily_rate?: number
+          end_date?: string | null
+          id?: string
+          labour_id?: string
+          notes?: string | null
+          site_id?: string
+          start_date?: string
+          task_category?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "labour_site_assignments_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "labour_site_assignments_labour_id_fkey"
+            columns: ["labour_id"]
+            isOneToOne: false
+            referencedRelation: "labour"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "labour_site_assignments_site_id_fkey"
             columns: ["site_id"]
             isOneToOne: false
             referencedRelation: "sites"
@@ -520,6 +562,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "sites"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_orders_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_balances"
+            referencedColumns: ["supplier_id"]
           },
           {
             foreignKeyName: "purchase_orders_supplier_id_fkey"
@@ -1014,6 +1063,13 @@ export type Database = {
             foreignKeyName: "supplier_payments_supplier_id_fkey"
             columns: ["supplier_id"]
             isOneToOne: false
+            referencedRelation: "supplier_balances"
+            referencedColumns: ["supplier_id"]
+          },
+          {
+            foreignKeyName: "supplier_payments_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
             referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
@@ -1112,6 +1168,20 @@ export type Database = {
           },
         ]
       }
+      supplier_balances: {
+        Row: {
+          balance_owed: number | null
+          contact_email: string | null
+          contact_phone: string | null
+          is_active: boolean | null
+          materials_supplied: string | null
+          name: string | null
+          supplier_id: string | null
+          total_billed: number | null
+          total_paid: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       calculate_weekly_settlement: {
@@ -1131,6 +1201,8 @@ export type Database = {
           last_edited_by: string
           net_payable: number
           paid_at: string | null
+          payment_mode: string | null
+          payment_reference: string | null
           payment_status: string
           site_id: string | null
           total_advances: number
@@ -1154,6 +1226,19 @@ export type Database = {
         Returns: number
       }
       get_my_role: { Args: never; Returns: string }
+      get_site_pnl: {
+        Args: { p_from: string; p_site_id: string; p_to: string }
+        Returns: {
+          labour_cost: number
+          net_profit: number
+          site_expense_cost: number
+          site_id: string
+          site_name: string
+          supplier_bill_cost: number
+          total_cost: number
+          total_income: number
+        }[]
+      }
       has_wage_visibility: { Args: { p_site_id: string }; Returns: boolean }
       is_supervisor_for_site: { Args: { p_site_id: string }; Returns: boolean }
       mark_settlement_paid: {
@@ -1173,6 +1258,8 @@ export type Database = {
           last_edited_by: string
           net_payable: number
           paid_at: string | null
+          payment_mode: string | null
+          payment_reference: string | null
           payment_status: string
           site_id: string | null
           total_advances: number
@@ -1185,6 +1272,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      remove_supervisor_site: {
+        Args: { p_site_id: string; p_supervisor_id: string }
+        Returns: undefined
       }
     }
     Enums: {
@@ -1314,9 +1405,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {},
   },

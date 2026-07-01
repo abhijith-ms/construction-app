@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -24,7 +25,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Loader2, Plus, Building2 } from "lucide-react";
+import { Loader2, Plus, Building2, LayoutDashboard } from "lucide-react";
 import type { TablesInsert } from "@/types/database";
 
 const siteSchema = z.object({
@@ -72,10 +73,13 @@ function formatDate(dateStr: string | null) {
 }
 
 export function Sites() {
+  const navigate = useNavigate();
   const { profile } = useAuthStore();
   const { data: sites, isLoading, error } = useSites();
   const { mutate: createSite, isPending: isCreating } = useCreateSite();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  const canViewDashboard = profile?.role === "admin" || profile?.role === "office_manager";
 
   const {
     register,
@@ -278,6 +282,17 @@ export function Sites() {
                         <span className="text-sm text-slate-500">Start Date</span>
                         <span className="text-sm">{formatDate(site.start_date)}</span>
                       </div>
+                      {canViewDashboard && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full mt-2"
+                          onClick={() => navigate(`/sites/${site.id}/dashboard`)}
+                        >
+                          <LayoutDashboard className="h-4 w-4 mr-2" />
+                          View Dashboard
+                        </Button>
+                      )}
                     </CardContent>
                   </Card>
                 ))}
@@ -303,6 +318,11 @@ export function Sites() {
                       <th className="text-left py-3 px-4 font-semibold text-slate-700">
                         Start Date
                       </th>
+                      {canViewDashboard && (
+                        <th className="text-left py-3 px-4 font-semibold text-slate-700">
+                          Actions
+                        </th>
+                      )}
                     </tr>
                   </thead>
                   <tbody className="divide-y">
@@ -328,6 +348,18 @@ export function Sites() {
                         <td className="py-3 px-4 text-sm">
                           {formatDate(site.start_date)}
                         </td>
+                        {canViewDashboard && (
+                          <td className="py-3 px-4">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => navigate(`/sites/${site.id}/dashboard`)}
+                            >
+                              <LayoutDashboard className="h-4 w-4 mr-2" />
+                              Dashboard
+                            </Button>
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>

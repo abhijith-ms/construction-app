@@ -3,6 +3,7 @@ import { Login } from "@/routes/Login";
 import { ProtectedLayout } from "@/routes/ProtectedLayout";
 import { Dashboard } from "@/routes/Dashboard";
 import { Sites } from "@/routes/Sites";
+import { SiteDashboard } from "@/routes/SiteDashboard";
 import { Labour } from "@/routes/Labour";
 import { Attendance } from "@/routes/Attendance";
 import { Staff } from "@/routes/Staff";
@@ -27,6 +28,7 @@ function App() {
         <Route element={<ProtectedLayout />}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/sites" element={<Sites />} />
+          <Route path="/sites/:id/dashboard" element={<SiteDashboard />} />
           <Route path="/labour" element={<Labour />} />
           <Route path="/attendance" element={<Attendance />} />
           <Route path="/staff" element={<Staff />} />

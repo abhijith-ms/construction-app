@@ -6,6 +6,7 @@ import { useAssignedSites } from "@/hooks/useAssignedSites";
 import { useAttendance } from "@/hooks/useAttendance";
 import { useCreateAttendance } from "@/hooks/useCreateAttendance";
 import { useWagePermissions } from "@/hooks/useWagePermissions";
+import { useActiveSiteAssignments, type ActiveSiteAssignment } from "@/hooks/useActiveSiteAssignments";
 import { useAuthStore } from "@/stores/authStore";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -64,10 +65,20 @@ export function Attendance() {
   const { data: existingAttendance, isLoading: attendanceLoading } = useAttendance(
     selectedSiteId || null,
     format(currentWeek, "yyyy-MM-dd"),
-    format(addDays(currentWeek, 5), "yyyy-MM-dd")
-  );
+    format(addDays(currentWeek, 5), "yyyy-MM-dd"))
+  ;
+  const { data: activeSiteAssignments, isLoading: assignmentsLoading } = useActiveSiteAssignments(selectedSiteId || null);
   const { canViewWages } = useWagePermissions();
   const { mutate: saveAttendance, isPending: isSaving } = useCreateAttendance();
+
+  // Build a lookup map of active assignments by labour_id for auto-fill
+  const assignmentsByLabourId = useMemo(() => {
+    const map = new Map<string, ActiveSiteAssignment>();
+    activeSiteAssignments?.forEach((assignment) => {
+      map.set(assignment.labour_id, assignment);
+    });
+    return map;
+  }, [activeSiteAssignments]);
 
   // Compute week dates (Mon-Sat)
   const weekDates = useMemo(() => {
@@ -100,15 +111,24 @@ export function Attendance() {
 
   const getCellData = (labourId: string, date: string, defaultCategory: string, defaultRate: number): AttendanceRecord => {
     const key = getCellKey(labourId, date);
-    return (
-      attendanceState.get(key) || {
-        labourId,
-        date,
-        status: "",
-        workCategory: defaultCategory,
-        rateApplied: defaultRate,
-      }
-    );
+    const existingRecord = attendanceState.get(key);
+    
+    if (existingRecord) {
+      return existingRecord;
+    }
+    
+    // Check for active assignment to auto-fill category and rate
+    const assignment = assignmentsByLabourId.get(labourId);
+    const autoFillCategory = assignment?.task_category || defaultCategory;
+    const autoFillRate = canViewWages ? (assignment?.daily_rate ?? defaultRate) : defaultRate;
+    
+    return {
+      labourId,
+      date,
+      status: "",
+      workCategory: autoFillCategory,
+      rateApplied: autoFillRate,
+    };
   };
 
   const updateCell = (
@@ -177,7 +197,7 @@ export function Attendance() {
     saveAttendance({ records, canViewWages, workerDefaultRates });
   };
 
-  const isLoading = sitesLoading || labourLoading || attendanceLoading;
+  const isLoading = sitesLoading || labourLoading || attendanceLoading || assignmentsLoading;
   const activeWorkers = labour?.filter(l => l.is_active) || [];
   const selectedDate = weekDates[selectedDayIndex];
 
