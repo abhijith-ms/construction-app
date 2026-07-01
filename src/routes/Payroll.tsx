@@ -167,18 +167,6 @@ export default function Payroll() {
   async function handleMarkPaid() {
     if (!user || !selectedSettlement) return;
 
-    // Validate payment reference for non-cash modes
-    if (paymentMode !== 'cash' && !paymentReference.trim()) {
-      const modeLabels: Record<PaymentMode, string> = {
-        cash: 'Cash',
-        upi: 'UPI Transaction ID',
-        bank_transfer: 'Bank Reference',
-        cheque: 'Cheque Number',
-      };
-      toast.error(`${modeLabels[paymentMode]} is required`);
-      return;
-    }
-
     try {
       const { error } = await supabase.rpc('mark_settlement_paid', {
         p_settlement_id: selectedSettlement.id,
@@ -252,14 +240,14 @@ export default function Payroll() {
 
         {showReferenceField && (
           <div className="space-y-2">
-            <Label htmlFor="payment-reference">{getReferenceLabel(paymentMode)} *</Label>
+            <Label htmlFor="payment-reference">{getReferenceLabel(paymentMode)}</Label>
             <Input
               id="payment-reference"
               value={paymentReference}
               onChange={(e) => setPaymentReference(e.target.value)}
-              placeholder={`Enter ${getReferenceLabel(paymentMode).toLowerCase()}`}
+              placeholder={`Enter ${getReferenceLabel(paymentMode).toLowerCase()} (optional)`}
             />
-            <p className="text-xs text-muted-foreground">Required for {paymentMode} payment</p>
+            <p className="text-xs text-muted-foreground">Optional for {paymentMode} payment</p>
           </div>
         )}
       </div>
