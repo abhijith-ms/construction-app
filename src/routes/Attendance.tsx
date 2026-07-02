@@ -92,8 +92,8 @@ export function Attendance() {
       existingAttendance.forEach((record) => {
         const key = `${record.labour_id}-${record.date}`;
         newMap.set(key, {
-          labourId: record.labour_id,
-          date: record.date,
+          labourId: record.labour_id ?? "",
+          date: record.date ?? "",
           status: (record.status as AttendanceStatus) || "",
           workCategory: record.work_category || "",
           rateApplied: record.rate_applied || "",

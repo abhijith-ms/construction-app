@@ -4,19 +4,17 @@ This file tracks design debt and deferred decisions that were made deliberately 
 
 ---
 
-## OPEN — Stock transfer atomicity
+## RESOLVED — Stock transfer atomicity
 
-**Where:** `stock_transactions` table, `update_stock_levels_on_transaction()` trigger (migration `20260623080011_create_stock_trigger.sql`)
+**Fixed in:** migration `20260701080031_stock_transfer_function.sql`
 
-**What:** A stock transfer between two sites is modeled as two separate rows — one `transfer_out` at the source site, one `transfer_in` at the destination site. The trigger updates `stock_levels` for each row independently. Nothing currently enforces that both rows are inserted together, in the same transaction, with matching quantities.
+**Fix:** `transfer_stock_between_sites()` Postgres function inserts both `transfer_out` and `transfer_in` rows atomically in a single transaction. Cannot partially fail. The function is `SECURITY DEFINER` with role gating (admin/office_manager only), includes an explicit `IS NULL` check before the `NOT IN` check to prevent the SQL NULL-evaluation silent-pass security hole, and is GRANT EXECUTE'd to `authenticated` for RPC access.
 
-**Risk:** If the application only inserts one of the two rows (e.g. due to a bug, a crashed request, or someone manually inserting a row via Studio), `stock_levels` will silently become wrong — stock will appear to vanish from one site without appearing at the other, or vice versa, with no error raised.
+**Also fixed:** The naive `NOT IN ('admin', 'office_manager')` check in the original proposal had a security hole — `NULL NOT IN (...)` evaluates to `NULL`, not `TRUE`, so an unauthenticated caller (no JWT) would silently pass the check. Fixed with `v_role IS NULL OR v_role NOT IN ('admin', 'office_manager')`.
 
-**When to fix:** Before or while building the actual "Transfer stock between sites" UI feature. At that point, build either:
-- A Postgres function that inserts both rows atomically in a single transaction (preferred — guarantees correctness at the database level, consistent with this project's "RLS/DB is the real boundary" philosophy), or
-- At minimum, application-level logic that wraps both inserts in a single Supabase transaction/RPC call, never two separate client-side inserts.
+**Verification:** Confirmed via `supabase db reset` (all 31 migrations clean) + direct SQL test showing Greenfield OPC Cement drops from 70→60 and Lakeview gains 0→10 on a 10-bag transfer.
 
-**Status:** Deferred intentionally on 2026-06-24. Documented in the migration file's header comment. Do not consider this resolved until the fix above is actually implemented — a comment alone does not close this gap.
+**Status:** RESOLVED on 2026-07-02
 
 ---
 

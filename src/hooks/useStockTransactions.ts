@@ -9,6 +9,7 @@ export interface StockTransaction {
   quantity: number;
   reference_note: string | null;
   transfer_site_id: string | null;
+  transfer_site_name: string | null;
   last_edited_by: string;
   last_edited_at: string;
   created_at: string;
@@ -36,7 +37,8 @@ export function useStockTransactions(siteId?: string | null) {
           last_edited_at,
           created_at,
           materials!inner(name, unit),
-          sites!inner(name)
+          sites!inner(name),
+          transfer_site:sites!transfer_site_id(name)
         `
         )
         .order("created_at", { ascending: false });
@@ -61,6 +63,7 @@ export function useStockTransactions(siteId?: string | null) {
           quantity: item.quantity,
           reference_note: item.reference_note,
           transfer_site_id: item.transfer_site_id,
+          transfer_site_name: item.transfer_site?.name || null,
           last_edited_by: item.last_edited_by,
           last_edited_at: item.last_edited_at,
           created_at: item.created_at,

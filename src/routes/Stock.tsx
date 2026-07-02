@@ -13,7 +13,8 @@ import { useDeleteMaterialUsage } from "@/hooks/useDeleteMaterialUsage";
 import { useSites } from "@/hooks/useSites";
 import { useAssignedSites } from "@/hooks/useAssignedSites";
 import { useAuthStore } from "@/stores/authStore";
-import { Plus, Pencil, Package, Layers, RefreshCw, Trash2, ArrowUpCircle, ArrowDownCircle, Hammer, CheckCircle, Clock } from "lucide-react";
+import { useTransferStock } from "@/hooks/useTransferStock";
+import { Plus, Pencil, Package, Layers, RefreshCw, Trash2, ArrowUpCircle, ArrowDownCircle, ArrowLeftRight, Hammer, CheckCircle, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -23,6 +24,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import {
   Table,
   TableBody,
@@ -57,6 +66,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 
 // Transaction form data interface
 interface TransactionFormData {
@@ -327,9 +337,309 @@ function MaterialsTab() {
   );
 }
 
+// Transfer Stock Dialog/Sheet
+// Rendered only for admin + office_manager (not supervisor).
+// Uses Sheet on mobile (bottom sheet feel), Dialog on desktop.
+interface TransferStockDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+function TransferStockDialog({ open, onOpenChange }: TransferStockDialogProps) {
+  const { data: sites = [] } = useSites();
+  const { data: allStockLevels = [] } = useStockLevels();
+  const transferStock = useTransferStock();
+
+  const [fromSiteId, setFromSiteId] = useState("");
+  const [toSiteId, setToSiteId] = useState("");
+  const [materialId, setMaterialId] = useState("");
+  const [quantity, setQuantity] = useState<string>("");
+  const [referenceNote, setReferenceNote] = useState("");
+  const [errors, setErrors] = useState<{
+    fromSite?: string;
+    toSite?: string;
+    material?: string;
+    quantity?: string;
+  }>({});
+
+  // Materials that have stock at the selected from site
+  const availableMaterials = allStockLevels.filter(
+    (sl) => sl.site_id === fromSiteId && sl.quantity_on_hand > 0
+  );
+
+  // Current stock for the selected material at the from site
+  const selectedStock = availableMaterials.find(
+    (sl) => sl.material_id === materialId
+  );
+
+  const activeSites = sites.filter((s) => s.status !== "completed");
+  const toSites = activeSites.filter((s) => s.id !== fromSiteId);
+
+  const handleFromSiteChange = (value: string) => {
+    setFromSiteId(value);
+    setMaterialId(""); // reset material when from-site changes
+    setToSiteId("");   // reset to-site when from-site changes
+  };
+
+  const validate = () => {
+    const newErrors: typeof errors = {};
+    if (!fromSiteId) newErrors.fromSite = "Source site is required";
+    if (!toSiteId) newErrors.toSite = "Destination site is required";
+    if (!materialId) newErrors.material = "Material is required";
+    const qty = parseFloat(quantity);
+    if (!quantity || isNaN(qty) || qty <= 0) {
+      newErrors.quantity = "Quantity must be greater than zero";
+    } else if (selectedStock && qty > selectedStock.quantity_on_hand) {
+      newErrors.quantity = `Cannot exceed available stock (${selectedStock.quantity_on_hand.toLocaleString("en-IN")} ${selectedStock.material_unit})`;
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validate()) return;
+
+    const fromSite = sites.find((s) => s.id === fromSiteId);
+    const toSite = sites.find((s) => s.id === toSiteId);
+    const materialName = selectedStock?.material_name ?? "material";
+    const qty = parseFloat(quantity);
+    const unit = selectedStock?.material_unit ?? "";
+
+    transferStock.mutate(
+      {
+        from_site_id: fromSiteId,
+        to_site_id: toSiteId,
+        material_id: materialId,
+        quantity: qty,
+        reference_note: referenceNote || undefined,
+      },
+      {
+        onSuccess: () => {
+          toast.success(
+            `${qty.toLocaleString("en-IN")} ${unit} of ${materialName} transferred from ${fromSite?.name} to ${toSite?.name}`
+          );
+          // Reset form
+          setFromSiteId("");
+          setToSiteId("");
+          setMaterialId("");
+          setQuantity("");
+          setReferenceNote("");
+          setErrors({});
+          onOpenChange(false);
+        },
+        onError: (err) => {
+          toast.error(err.message);
+        },
+      }
+    );
+  };
+
+  const handleOpenChange = (open: boolean) => {
+    if (!open) {
+      setFromSiteId("");
+      setToSiteId("");
+      setMaterialId("");
+      setQuantity("");
+      setReferenceNote("");
+      setErrors({});
+    }
+    onOpenChange(open);
+  };
+
+  const formContent = (
+    <form id="transfer-stock-form" onSubmit={handleSubmit}>
+      <div className="grid gap-4 py-4">
+        {/* From Site */}
+        <div className="grid gap-2">
+          <Label htmlFor="transfer-from-site">From Site</Label>
+          <Select value={fromSiteId} onValueChange={handleFromSiteChange}>
+            <SelectTrigger id="transfer-from-site" className="min-h-11">
+              <SelectValue placeholder="Select source site" />
+            </SelectTrigger>
+            <SelectContent>
+              {activeSites.map((site) => (
+                <SelectItem key={site.id} value={site.id}>
+                  {site.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {errors.fromSite && (
+            <p className="text-sm text-red-500">{errors.fromSite}</p>
+          )}
+        </div>
+
+        {/* To Site */}
+        <div className="grid gap-2">
+          <Label htmlFor="transfer-to-site">To Site</Label>
+          <Select
+            value={toSiteId}
+            onValueChange={setToSiteId}
+            disabled={!fromSiteId}
+          >
+            <SelectTrigger id="transfer-to-site" className="min-h-11">
+              <SelectValue
+                placeholder={fromSiteId ? "Select destination site" : "Select source site first"}
+              />
+            </SelectTrigger>
+            <SelectContent>
+              {toSites.map((site) => (
+                <SelectItem key={site.id} value={site.id}>
+                  {site.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {errors.toSite && (
+            <p className="text-sm text-red-500">{errors.toSite}</p>
+          )}
+        </div>
+
+        {/* Material — only materials with stock at the from site */}
+        <div className="grid gap-2">
+          <Label htmlFor="transfer-material">Material</Label>
+          <Select
+            value={materialId}
+            onValueChange={setMaterialId}
+            disabled={!fromSiteId}
+          >
+            <SelectTrigger id="transfer-material" className="min-h-11">
+              <SelectValue
+                placeholder={
+                  !fromSiteId
+                    ? "Select source site first"
+                    : availableMaterials.length === 0
+                    ? "No stock at this site"
+                    : "Select material"
+                }
+              />
+            </SelectTrigger>
+            <SelectContent>
+              {availableMaterials.map((sl) => (
+                <SelectItem key={sl.material_id} value={sl.material_id}>
+                  {sl.material_name} ({sl.quantity_on_hand.toLocaleString("en-IN")} {sl.material_unit} available)
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {errors.material && (
+            <p className="text-sm text-red-500">{errors.material}</p>
+          )}
+        </div>
+
+        {/* Quantity */}
+        <div className="grid gap-2">
+          <Label htmlFor="transfer-quantity">Quantity</Label>
+          <Input
+            id="transfer-quantity"
+            type="number"
+            step="0.001"
+            min="0.001"
+            max={selectedStock?.quantity_on_hand}
+            placeholder="Enter quantity"
+            value={quantity}
+            onChange={(e) => setQuantity(e.target.value)}
+            className="min-h-11"
+          />
+          {selectedStock && (
+            <p className="text-xs text-muted-foreground">
+              Available: {selectedStock.quantity_on_hand.toLocaleString("en-IN")} {selectedStock.material_unit}
+            </p>
+          )}
+          {errors.quantity && (
+            <p className="text-sm text-red-500">{errors.quantity}</p>
+          )}
+        </div>
+
+        {/* Reference note (optional) */}
+        <div className="grid gap-2">
+          <Label htmlFor="transfer-reference">Reference Note (Optional)</Label>
+          <Input
+            id="transfer-reference"
+            placeholder="e.g., Surplus from Site A"
+            value={referenceNote}
+            onChange={(e) => setReferenceNote(e.target.value)}
+            className="min-h-11"
+          />
+        </div>
+      </div>
+    </form>
+  );
+
+  const isMobile = window.innerWidth < 768;
+
+  if (isMobile) {
+    return (
+      <Sheet open={open} onOpenChange={handleOpenChange}>
+        <SheetContent side="bottom" className="h-[90vh] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Transfer Stock</SheetTitle>
+            <SheetDescription>
+              Move stock from one site to another atomically.
+            </SheetDescription>
+          </SheetHeader>
+          {formContent}
+          <SheetFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => handleOpenChange(false)}
+              className="min-h-11"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              form="transfer-stock-form"
+              disabled={transferStock.isPending}
+              className="min-h-11"
+            >
+              {transferStock.isPending ? "Transferring..." : "Transfer Stock"}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+    );
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="sm:max-w-[480px]">
+        <DialogHeader>
+          <DialogTitle>Transfer Stock</DialogTitle>
+          <DialogDescription>
+            Move stock from one site to another atomically.
+          </DialogDescription>
+        </DialogHeader>
+        {formContent}
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => handleOpenChange(false)}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            form="transfer-stock-form"
+            disabled={transferStock.isPending}
+          >
+            {transferStock.isPending ? "Transferring..." : "Transfer Stock"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // Stock Levels Tab Component
 function StockLevelsTab() {
+  const { profile } = useAuthStore();
+  const canTransfer = profile?.role === "admin" || profile?.role === "office_manager";
   const [selectedSiteId, setSelectedSiteId] = useState<string>("all");
+  const [isTransferOpen, setIsTransferOpen] = useState(false);
   const { data: sites = [] } = useSites();
   const { data: stockLevels = [], isLoading } = useStockLevels(
     selectedSiteId === "all" ? undefined : selectedSiteId
@@ -337,7 +647,7 @@ function StockLevelsTab() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-2 w-full sm:w-auto">
           <Label htmlFor="site-filter" className="shrink-0">Filter by Site:</Label>
           <Select value={selectedSiteId} onValueChange={setSelectedSiteId}>
@@ -356,7 +666,25 @@ function StockLevelsTab() {
             </SelectContent>
           </Select>
         </div>
+        {/* Transfer button: only admin and office_manager. Never rendered for supervisor. */}
+        {canTransfer && (
+          <Button
+            id="transfer-stock-btn"
+            onClick={() => setIsTransferOpen(true)}
+            variant="outline"
+            className="w-full sm:w-auto min-h-11"
+          >
+            <ArrowLeftRight className="h-4 w-4 mr-2" />
+            Transfer Stock
+          </Button>
+        )}
       </div>
+      {canTransfer && (
+        <TransferStockDialog
+          open={isTransferOpen}
+          onOpenChange={setIsTransferOpen}
+        />
+      )}
 
       {/* Mobile Cards View */}
       <div className="md:hidden space-y-3">
@@ -544,9 +872,9 @@ function TransactionsTab() {
       case "usage":
         return <Badge variant="destructive">Usage</Badge>;
       case "transfer_in":
-        return <Badge variant="secondary">Transfer In</Badge>;
+        return <Badge className="bg-blue-500 hover:bg-blue-600 text-white">Transfer In</Badge>;
       case "transfer_out":
-        return <Badge variant="outline">Transfer Out</Badge>;
+        return <Badge className="bg-orange-500 hover:bg-orange-600 text-white">Transfer Out</Badge>;
       default:
         return <Badge>{type}</Badge>;
     }
@@ -609,6 +937,12 @@ function TransactionsTab() {
                   <div className="min-h-11 flex flex-col justify-center">
                     <div className="font-medium text-slate-900">{tx.material_name}</div>
                     <div className="text-sm text-slate-500">{tx.site_name}</div>
+                    {tx.transfer_site_name && (
+                      <div className="text-xs text-muted-foreground">
+                        {tx.transaction_type === "transfer_out" ? "→ To: " : "← From: "}
+                        {tx.transfer_site_name}
+                      </div>
+                    )}
                   </div>
                   <div className="text-xs text-muted-foreground">{formatDate(tx.created_at)}</div>
                 </div>
@@ -656,6 +990,7 @@ function TransactionsTab() {
               <TableHead>Site</TableHead>
               <TableHead>Type</TableHead>
               <TableHead>Material</TableHead>
+              <TableHead>Transfer Site</TableHead>
               <TableHead className="text-right">Quantity</TableHead>
               <TableHead>Reference</TableHead>
               <TableHead className="w-16">Action</TableHead>
@@ -683,6 +1018,16 @@ function TransactionsTab() {
                   <TableCell>{tx.site_name}</TableCell>
                   <TableCell>{getTypeBadge(tx.transaction_type)}</TableCell>
                   <TableCell className="font-medium">{tx.material_name}</TableCell>
+                  <TableCell className="text-muted-foreground text-sm">
+                    {tx.transfer_site_name
+                      ? (
+                          <span className="flex items-center gap-1">
+                            <ArrowLeftRight className="h-3 w-3" />
+                            {tx.transfer_site_name}
+                          </span>
+                        )
+                      : "-"}
+                  </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
                       {getQuantityIcon(tx.transaction_type)}

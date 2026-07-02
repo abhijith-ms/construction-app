@@ -7,6 +7,31 @@ export type Json =
   | Json[]
 
 export type Database = {
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       bills: {
@@ -1403,6 +1428,17 @@ export type Database = {
         Args: { p_site_id: string; p_supervisor_id: string }
         Returns: undefined
       }
+      transfer_stock_between_sites: {
+        Args: {
+          p_edited_by?: string
+          p_from_site_id: string
+          p_material_id: string
+          p_quantity: number
+          p_reference_note?: string
+          p_to_site_id: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
@@ -1531,6 +1567,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {},
   },
