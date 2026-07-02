@@ -86,7 +86,7 @@ const moreItems: NavItem[] = [
     to: "/stock",
     label: "Stock",
     icon: <LayoutDashboard className="h-5 w-5" />,
-    showFor: ["admin", "office_manager"],
+    showFor: ["admin", "office_manager", "supervisor"],
   },
   {
     to: "/reports",

@@ -62,9 +62,9 @@ export function ProtectedLayout() {
     { to: "/staff-attendance", label: "Staff Att.", icon: <UserCheck className="h-5 w-5" /> },
     { to: "/expenses", label: "Expenses", icon: <Receipt className="h-5 w-5" /> },
     { to: "/payroll", label: "Payroll", icon: <IndianRupee className="h-5 w-5" /> },
+    { to: "/stock", label: "Stock", icon: <Package className="h-5 w-5" /> },
     ...(isAdmin ? [
       { to: "/suppliers", label: "Suppliers", icon: <Truck className="h-5 w-5" />, adminOnly: true },
-      { to: "/stock", label: "Stock", icon: <Package className="h-5 w-5" />, adminOnly: true },
       { to: "/reports", label: "Reports", icon: <BarChart3 className="h-5 w-5" />, adminOnly: true },
       { to: "/pay-receipts", label: "Receipts", icon: <Receipt className="h-5 w-5" />, adminOnly: true },
       { to: "/users", label: "Users", icon: <UserCog className="h-5 w-5" />, adminOnly: true },
