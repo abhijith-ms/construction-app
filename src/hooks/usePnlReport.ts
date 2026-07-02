@@ -8,6 +8,7 @@ export interface PnLReportRow {
   labour_cost: number;
   site_expense_cost: number;
   supplier_bill_cost: number;
+  material_usage_cost: number;
   total_cost: number;
   net_profit: number;
 }

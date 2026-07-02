@@ -63,7 +63,7 @@ function PnLCard({ data }: { data: PnLReportRow }) {
               <p className="text-xl font-bold text-red-600">{formatCurrency(data.total_cost)}</p>
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-2 text-center">
+          <div className="grid grid-cols-2 gap-2 text-center">
             <div>
               <p className="text-xs text-muted-foreground">Labour</p>
               <p className="text-sm font-medium text-red-600">{formatCurrency(data.labour_cost)}</p>
@@ -71,6 +71,10 @@ function PnLCard({ data }: { data: PnLReportRow }) {
             <div>
               <p className="text-xs text-muted-foreground">Expenses</p>
               <p className="text-sm font-medium text-red-600">{formatCurrency(data.site_expense_cost)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Mat. Usage</p>
+              <p className="text-sm font-medium text-red-600">{formatCurrency(data.material_usage_cost)}</p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Bills</p>
@@ -98,7 +102,7 @@ function PnLCard({ data }: { data: PnLReportRow }) {
         </div>
 
         {/* Desktop Layout */}
-        <div className="hidden md:grid grid-cols-4 lg:grid-cols-7 gap-4">
+        <div className="hidden md:grid grid-cols-4 lg:grid-cols-8 gap-4">
           <div className="space-y-1">
             <p className="text-xs text-muted-foreground uppercase tracking-wide">Income</p>
             <p className="text-lg font-semibold text-green-600">{formatCurrency(data.total_income)}</p>
@@ -110,6 +114,10 @@ function PnLCard({ data }: { data: PnLReportRow }) {
           <div className="space-y-1">
             <p className="text-xs text-muted-foreground uppercase tracking-wide">Site Expenses</p>
             <p className="text-lg font-medium text-red-600">{formatCurrency(data.site_expense_cost)}</p>
+          </div>
+          <div className="space-y-1">
+            <p className="text-xs text-muted-foreground uppercase tracking-wide">Mat. Usage</p>
+            <p className="text-lg font-medium text-red-600">{formatCurrency(data.material_usage_cost)}</p>
           </div>
           <div className="space-y-1">
             <p className="text-xs text-muted-foreground uppercase tracking-wide">Supplier Bills</p>

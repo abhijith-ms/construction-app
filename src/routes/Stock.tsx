@@ -6,9 +6,14 @@ import { useStockLevels } from "@/hooks/useStockLevels";
 import { useStockTransactions } from "@/hooks/useStockTransactions";
 import { useCreateStockTransaction } from "@/hooks/useCreateStockTransaction";
 import { useDeleteStockTransaction } from "@/hooks/useDeleteStockTransaction";
+import { useMaterialUsage, type MaterialUsageRecord } from "@/hooks/useMaterialUsage";
+import { useCreateMaterialUsage, type CreateMaterialUsageInput } from "@/hooks/useCreateMaterialUsage";
+import { useApproveMaterialUsage } from "@/hooks/useApproveMaterialUsage";
+import { useDeleteMaterialUsage } from "@/hooks/useDeleteMaterialUsage";
 import { useSites } from "@/hooks/useSites";
+import { useAssignedSites } from "@/hooks/useAssignedSites";
 import { useAuthStore } from "@/stores/authStore";
-import { Plus, Pencil, Package, Layers, RefreshCw, Trash2, ArrowUpCircle, ArrowDownCircle } from "lucide-react";
+import { Plus, Pencil, Package, Layers, RefreshCw, Trash2, ArrowUpCircle, ArrowDownCircle, Hammer, CheckCircle, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -42,6 +47,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 // Transaction form data interface
 interface TransactionFormData {
@@ -865,19 +880,495 @@ function TransactionsTab() {
   );
 }
 
+// Material Usage Tab Component
+function MaterialUsageTab() {
+  const { profile } = useAuthStore();
+  const [selectedSiteId, setSelectedSiteId] = useState<string>("all");
+  const [isLogDialogOpen, setIsLogDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [usageToDelete, setUsageToDelete] = useState<MaterialUsageRecord | null>(null);
+  const [formErrors, setFormErrors] = useState<{
+    site_id?: string;
+    material_id?: string;
+    quantity?: string;
+    unit_price?: string;
+  }>({});
+
+  const isAdminOrOffice = profile?.role === "admin" || profile?.role === "office_manager";
+  const isSupervisor = profile?.role === "supervisor";
+
+  const { data: sites = [] } = useSites();
+  const { data: assignedSites } = useAssignedSites();
+  const { data: materials = [] } = useMaterials(true);
+  const { data: usageRecords = [], isLoading } = useMaterialUsage({
+    siteId: selectedSiteId === "all" ? null : selectedSiteId,
+  });
+
+  const createUsage = useCreateMaterialUsage();
+  const approveUsage = useApproveMaterialUsage();
+  const deleteUsage = useDeleteMaterialUsage();
+
+  const [formData, setFormData] = useState<CreateMaterialUsageInput>({
+    site_id: "",
+    material_id: "",
+    quantity: 0,
+    unit_price: 0,
+    usage_date: new Date().toISOString().split("T")[0],
+    notes: "",
+  });
+
+  // Get available sites based on role
+  const getAvailableSites = () => {
+    if (isAdminOrOffice) {
+      return sites.filter((site) => site.status !== "completed");
+    }
+    if (isSupervisor && assignedSites) {
+      return sites.filter((site) =>
+        assignedSites.some((as) => as.id === site.id)
+      );
+    }
+    return [];
+  };
+
+  const availableSites = getAvailableSites();
+
+  const validateForm = () => {
+    const errors: { site_id?: string; material_id?: string; quantity?: string; unit_price?: string } = {};
+    if (!formData.site_id) errors.site_id = "Site is required";
+    if (!formData.material_id) errors.material_id = "Material is required";
+    if (!formData.quantity || formData.quantity <= 0) {
+      errors.quantity = "Quantity must be greater than 0";
+    }
+    if (!formData.unit_price || formData.unit_price < 0) {
+      errors.unit_price = "Unit price must be 0 or greater";
+    }
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validateForm()) return;
+
+    createUsage.mutate(formData, {
+      onSuccess: () => {
+        setIsLogDialogOpen(false);
+        setFormData({
+          site_id: "",
+          material_id: "",
+          quantity: 0,
+          unit_price: 0,
+          usage_date: new Date().toISOString().split("T")[0],
+          notes: "",
+        });
+        setFormErrors({});
+      },
+    });
+  };
+
+  const handleAddNew = () => {
+    setFormData({
+      site_id: "",
+      material_id: "",
+      quantity: 0,
+      unit_price: 0,
+      usage_date: new Date().toISOString().split("T")[0],
+      notes: "",
+    });
+    setFormErrors({});
+    setIsLogDialogOpen(true);
+  };
+
+  const handleApprove = (id: string) => {
+    approveUsage.mutate(id);
+  };
+
+  const handleConfirmDelete = (record: MaterialUsageRecord) => {
+    setUsageToDelete(record);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleDelete = () => {
+    if (usageToDelete) {
+      deleteUsage.mutate(usageToDelete.id, {
+        onSuccess: () => {
+          setIsDeleteDialogOpen(false);
+          setUsageToDelete(null);
+        },
+      });
+    }
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      maximumFractionDigits: 2,
+    }).format(amount);
+  };
+
+  const getStatusBadge = (state: string) => {
+    if (state === "approved") {
+      return <Badge className="bg-green-500 hover:bg-green-600 flex items-center gap-1"><CheckCircle className="h-3 w-3" /> Approved</Badge>;
+    }
+    return <Badge variant="secondary" className="flex items-center gap-1"><Clock className="h-3 w-3" /> Pending</Badge>;
+  };
+
+  const canLogUsage = isAdminOrOffice || (isSupervisor && availableSites.length > 0);
+  const canApprove = isAdminOrOffice;
+  const canDelete = isAdminOrOffice;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <Label htmlFor="usage-site-filter" className="shrink-0">Filter by Site:</Label>
+          <Select value={selectedSiteId} onValueChange={setSelectedSiteId}>
+            <SelectTrigger id="usage-site-filter" className="w-full sm:w-64 min-h-11">
+              <SelectValue placeholder="Select site" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Sites</SelectItem>
+              {availableSites.map((site) => (
+                <SelectItem key={site.id} value={site.id}>
+                  {site.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        {canLogUsage && (
+          <Button onClick={handleAddNew} className="w-full sm:w-auto min-h-11">
+            <Plus className="h-4 w-4 mr-2" />
+            Log Usage
+          </Button>
+        )}
+      </div>
+
+      {/* Mobile Cards View */}
+      <div className="md:hidden space-y-3">
+        {isLoading ? (
+          <div className="text-center py-8">Loading material usage...</div>
+        ) : usageRecords.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground border rounded-md">
+            No material usage recorded{selectedSiteId !== "all" ? " for selected site" : ""}.
+          </div>
+        ) : (
+          usageRecords.map((record) => (
+            <Card key={record.id} className="min-h-11">
+              <CardContent className="p-4 space-y-2">
+                <div className="flex items-start justify-between">
+                  <div className="min-h-11 flex flex-col justify-center">
+                    <div className="font-medium text-slate-900">{record.material?.name || "Unknown"}</div>
+                    <div className="text-sm text-slate-500">{record.site?.name || "Unknown site"}</div>
+                  </div>
+                  {getStatusBadge(record.state)}
+                </div>
+                <div className="flex items-center justify-between pt-2 border-t">
+                  <div className="text-sm">
+                    <span className="font-medium">{record.quantity.toLocaleString("en-IN")}</span> {record.material?.unit}
+                  </div>
+                  <div className="font-medium text-slate-900">
+                    {formatCurrency(record.total_cost)}
+                  </div>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {formatDate(record.usage_date)}
+                </div>
+                {record.notes && (
+                  <div className="text-sm text-muted-foreground truncate">
+                    {record.notes}
+                  </div>
+                )}
+                {record.state === "pending" && (
+                  <div className="flex gap-2 pt-2">
+                    {canApprove && (
+                      <Button
+                        size="sm"
+                        className="flex-1 min-h-11"
+                        onClick={() => handleApprove(record.id)}
+                        disabled={approveUsage.isPending}
+                      >
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                        Approve
+                      </Button>
+                    )}
+                    {canDelete && (
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        className="flex-1 min-h-11"
+                        onClick={() => handleConfirmDelete(record)}
+                        disabled={deleteUsage.isPending}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ))
+        )}
+      </div>
+
+      {/* Desktop Table View */}
+      <div className="hidden md:block border rounded-md">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Date</TableHead>
+              <TableHead>Site</TableHead>
+              <TableHead>Material</TableHead>
+              <TableHead className="text-right">Quantity</TableHead>
+              <TableHead className="text-right">Unit Price</TableHead>
+              <TableHead className="text-right">Total Cost</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Notes</TableHead>
+              {(canApprove || canDelete) && <TableHead className="w-32">Actions</TableHead>}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={canApprove || canDelete ? 9 : 8} className="text-center py-8">
+                  Loading material usage...
+                </TableCell>
+              </TableRow>
+            ) : usageRecords.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={canApprove || canDelete ? 9 : 8} className="text-center py-8 text-muted-foreground">
+                  No material usage recorded{selectedSiteId !== "all" ? " for selected site" : ""}.
+                </TableCell>
+              </TableRow>
+            ) : (
+              usageRecords.map((record) => (
+                <TableRow key={record.id}>
+                  <TableCell className="text-muted-foreground text-sm">
+                    {formatDate(record.usage_date)}
+                  </TableCell>
+                  <TableCell>{record.site?.name || "-"}</TableCell>
+                  <TableCell className="font-medium">{record.material?.name || "-"}</TableCell>
+                  <TableCell className="text-right">
+                    {record.quantity.toLocaleString("en-IN")} {record.material?.unit}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {formatCurrency(record.unit_price)}
+                  </TableCell>
+                  <TableCell className="text-right font-medium">
+                    {formatCurrency(record.total_cost)}
+                  </TableCell>
+                  <TableCell>{getStatusBadge(record.state)}</TableCell>
+                  <TableCell className="text-muted-foreground text-sm max-w-xs truncate">
+                    {record.notes || "-"}
+                  </TableCell>
+                  {(canApprove || canDelete) && (
+                    <TableCell>
+                      {record.state === "pending" && (
+                        <div className="flex items-center gap-1">
+                          {canApprove && (
+                            <Button
+                              size="sm"
+                              onClick={() => handleApprove(record.id)}
+                              disabled={approveUsage.isPending}
+                            >
+                              <CheckCircle className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {canDelete && (
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => handleConfirmDelete(record)}
+                              disabled={deleteUsage.isPending}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      )}
+                    </TableCell>
+                  )}
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* Log Usage Dialog */}
+      <Dialog open={isLogDialogOpen} onOpenChange={setIsLogDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Log Material Usage</DialogTitle>
+            <DialogDescription>
+              Record materials consumed at a site. Requires approval before stock is reduced.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSubmit}>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="site_id">Site</Label>
+                <Select
+                  value={formData.site_id}
+                  onValueChange={(value) => setFormData({ ...formData, site_id: value })}
+                >
+                  <SelectTrigger id="site_id">
+                    <SelectValue placeholder="Select site" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableSites.map((site) => (
+                      <SelectItem key={site.id} value={site.id}>
+                        {site.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {formErrors.site_id && (
+                  <p className="text-sm text-red-500">{formErrors.site_id}</p>
+                )}
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="material_id">Material</Label>
+                <Select
+                  value={formData.material_id}
+                  onValueChange={(value) => setFormData({ ...formData, material_id: value })}
+                >
+                  <SelectTrigger id="material_id">
+                    <SelectValue placeholder="Select material" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {materials.filter((m) => m.is_active).map((material) => (
+                      <SelectItem key={material.id} value={material.id}>
+                        {material.name} ({material.unit})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {formErrors.material_id && (
+                  <p className="text-sm text-red-500">{formErrors.material_id}</p>
+                )}
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="quantity">Quantity</Label>
+                <Input
+                  id="quantity"
+                  type="number"
+                  step="0.001"
+                  placeholder="Enter quantity"
+                  value={formData.quantity || ""}
+                  onChange={(e) => setFormData({ ...formData, quantity: parseFloat(e.target.value) || 0 })}
+                />
+                {formErrors.quantity && (
+                  <p className="text-sm text-red-500">{formErrors.quantity}</p>
+                )}
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="unit_price">Unit Price (₹)</Label>
+                <Input
+                  id="unit_price"
+                  type="number"
+                  step="0.01"
+                  placeholder="Enter unit price"
+                  value={formData.unit_price || ""}
+                  onChange={(e) => setFormData({ ...formData, unit_price: parseFloat(e.target.value) || 0 })}
+                />
+                {formErrors.unit_price && (
+                  <p className="text-sm text-red-500">{formErrors.unit_price}</p>
+                )}
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="usage_date">Date</Label>
+                <Input
+                  id="usage_date"
+                  type="date"
+                  value={formData.usage_date}
+                  onChange={(e) => setFormData({ ...formData, usage_date: e.target.value })}
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="notes">Notes (Optional)</Label>
+                <Input
+                  id="notes"
+                  placeholder="e.g., Used for foundation work"
+                  value={formData.notes || ""}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setIsLogDialogOpen(false);
+                  setFormErrors({});
+                }}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={createUsage.isPending}>
+                {createUsage.isPending ? "Logging..." : "Log Usage"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Material Usage?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will delete the pending material usage record for{" "}
+              <strong>{usageToDelete?.material?.name}</strong> at{" "}
+              <strong>{usageToDelete?.site?.name}</strong>.
+              <br /><br />
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setIsDeleteDialogOpen(false)}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-red-500 hover:bg-red-600"
+              disabled={deleteUsage.isPending}
+            >
+              {deleteUsage.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
 // Main Stock Component
 export default function Stock() {
   const { profile } = useAuthStore();
+  const { data: assignedSites } = useAssignedSites();
 
-  // Check if user has permission (Admin or Office Manager only)
-  const hasPermission = profile?.role === "admin" || profile?.role === "office_manager";
+  const isAdmin = profile?.role === "admin";
+  const isOfficeManager = profile?.role === "office_manager";
+  const isSupervisor = profile?.role === "supervisor";
+  const canManageStock = isAdmin || isOfficeManager;
+  const canViewMaterialUsage = canManageStock || (isSupervisor && (assignedSites?.length ?? 0) > 0);
 
-  if (!hasPermission) {
+  if (!canViewMaterialUsage) {
     return (
       <div className="p-6">
         <h1 className="text-2xl font-bold mb-4">Stock</h1>
         <p className="text-muted-foreground">
-          You do not have permission to view this page.
+          You do not have permission to view this page. Contact an administrator if you need access.
         </p>
       </div>
     );
@@ -887,32 +1378,48 @@ export default function Stock() {
     <div className="p-6 space-y-6">
       <h1 className="text-2xl font-bold text-slate-900">Stock / Inventory</h1>
 
-      <Tabs defaultValue="materials" className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-3">
-          <TabsTrigger value="materials" className="flex items-center gap-2">
-            <Package className="h-4 w-4" />
-            Materials
-          </TabsTrigger>
-          <TabsTrigger value="levels" className="flex items-center gap-2">
-            <Layers className="h-4 w-4" />
-            Stock Levels
-          </TabsTrigger>
-          <TabsTrigger value="transactions" className="flex items-center gap-2">
-            <RefreshCw className="h-4 w-4" />
-            Transactions
+      <Tabs defaultValue={canManageStock ? "materials" : "usage"} className="w-full">
+        <TabsList className={`grid w-full ${canManageStock ? "max-w-lg grid-cols-4" : "max-w-xs grid-cols-1"}`}>
+          {canManageStock && (
+            <>
+              <TabsTrigger value="materials" className="flex items-center gap-2">
+                <Package className="h-4 w-4" />
+                Materials
+              </TabsTrigger>
+              <TabsTrigger value="levels" className="flex items-center gap-2">
+                <Layers className="h-4 w-4" />
+                Stock Levels
+              </TabsTrigger>
+              <TabsTrigger value="transactions" className="flex items-center gap-2">
+                <RefreshCw className="h-4 w-4" />
+                Transactions
+              </TabsTrigger>
+            </>
+          )}
+          <TabsTrigger value="usage" className="flex items-center gap-2">
+            <Hammer className="h-4 w-4" />
+            Material Usage
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="materials" className="mt-6">
-          <MaterialsTab />
-        </TabsContent>
+        {canManageStock && (
+          <>
+            <TabsContent value="materials" className="mt-6">
+              <MaterialsTab />
+            </TabsContent>
 
-        <TabsContent value="levels" className="mt-6">
-          <StockLevelsTab />
-        </TabsContent>
+            <TabsContent value="levels" className="mt-6">
+              <StockLevelsTab />
+            </TabsContent>
 
-        <TabsContent value="transactions" className="mt-6">
-          <TransactionsTab />
+            <TabsContent value="transactions" className="mt-6">
+              <TransactionsTab />
+            </TabsContent>
+          </>
+        )}
+
+        <TabsContent value="usage" className="mt-6">
+          <MaterialUsageTab />
         </TabsContent>
       </Tabs>
     </div>

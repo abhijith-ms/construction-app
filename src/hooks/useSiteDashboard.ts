@@ -11,6 +11,7 @@ interface DashboardData {
   labourCost: number;
   siteExpenses: number;
   supplierBills: number;
+  materialUsageCost: number;
   totalReceived: number;
   workforce: {
     count: number;
@@ -68,6 +69,7 @@ export function useSiteDashboard(siteId: string | undefined) {
         labourCostResult,
         siteExpensesResult,
         supplierBillsResult,
+        materialUsageResult,
         totalReceivedResult,
         workforceResult,
         stockSummaryResult,
@@ -99,13 +101,20 @@ export function useSiteDashboard(siteId: string | undefined) {
           .select("amount, purchase_order: purchase_orders!inner(site_id)")
           .eq("purchase_orders.site_id", siteId),
 
-        // 5. Total received (sum of pay_receipts for this site)
+        // 5. Material usage cost (sum of approved material_usage for this site)
+        supabase
+          .from("material_usage")
+          .select("total_cost")
+          .eq("site_id", siteId)
+          .eq("state", "approved"),
+
+        // 6. Total received (sum of pay_receipts for this site)
         supabase
           .from("pay_receipts")
           .select("amount")
           .eq("site_id", siteId),
 
-        // 6. This week's workforce - attendance records for this week
+        // 7. This week's workforce - attendance records for this week
         supabase
           .from("labour_attendance")
           .select("date, labour_id, status, labour: labour(full_name)")
@@ -113,14 +122,14 @@ export function useSiteDashboard(siteId: string | undefined) {
           .gte("date", weekStartStr)
           .lte("date", weekEndStr),
 
-        // 7. Stock summary - materials with quantities for this site
+        // 8. Stock summary - materials with quantities for this site
         supabase
           .from("stock_levels")
           .select("quantity_on_hand, material: materials(id, name, unit)")
           .eq("site_id", siteId)
           .gt("quantity_on_hand", 0),
 
-        // 8. Recent site expenses (last 7 days, limit 5)
+        // 9. Recent site expenses (last 7 days, limit 5)
         supabase
           .from("site_expenses")
           .select("*")
@@ -129,7 +138,7 @@ export function useSiteDashboard(siteId: string | undefined) {
           .order("date", { ascending: false })
           .limit(5),
 
-        // 9. Recent stock transactions (last 7 days, limit 5)
+        // 10. Recent stock transactions (last 7 days, limit 5)
         supabase
           .from("stock_transactions")
           .select("*, material: materials(name, unit)")
@@ -152,6 +161,11 @@ export function useSiteDashboard(siteId: string | undefined) {
 
       const supplierBills = (supplierBillsResult.data || []).reduce(
         (sum, b) => sum + (b.amount || 0),
+        0
+      );
+
+      const materialUsageCost = (materialUsageResult.data || []).reduce(
+        (sum, m) => sum + (m.total_cost || 0),
         0
       );
 
@@ -203,6 +217,7 @@ export function useSiteDashboard(siteId: string | undefined) {
         labourCost,
         siteExpenses,
         supplierBills,
+        materialUsageCost,
         totalReceived,
         workforce: {
           count: workers.length,

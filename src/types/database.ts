@@ -362,6 +362,73 @@ export type Database = {
           },
         ]
       }
+      material_usage: {
+        Row: {
+          created_at: string
+          id: string
+          last_edited_at: string
+          last_edited_by: string
+          material_id: string
+          notes: string | null
+          quantity: number
+          site_id: string
+          state: string
+          total_cost: number | null
+          unit_price: number
+          usage_date: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_edited_at?: string
+          last_edited_by: string
+          material_id: string
+          notes?: string | null
+          quantity: number
+          site_id: string
+          state?: string
+          total_cost?: number | null
+          unit_price: number
+          usage_date?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_edited_at?: string
+          last_edited_by?: string
+          material_id?: string
+          notes?: string | null
+          quantity?: number
+          site_id?: string
+          state?: string
+          total_cost?: number | null
+          unit_price?: number
+          usage_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "material_usage_last_edited_by_fkey"
+            columns: ["last_edited_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "material_usage_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "material_usage_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       materials: {
         Row: {
           created_at: string
@@ -1184,6 +1251,29 @@ export type Database = {
       }
     }
     Functions: {
+      approve_material_usage: {
+        Args: { p_usage_id: string }
+        Returns: {
+          created_at: string
+          id: string
+          last_edited_at: string
+          last_edited_by: string
+          material_id: string
+          notes: string | null
+          quantity: number
+          site_id: string
+          state: string
+          total_cost: number | null
+          unit_price: number
+          usage_date: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "material_usage"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       calculate_weekly_settlement: {
         Args: {
           p_labour_id: string
@@ -1230,6 +1320,7 @@ export type Database = {
         Args: { p_from: string; p_site_id: string; p_to: string }
         Returns: {
           labour_cost: number
+          material_usage_cost: number
           net_profit: number
           site_expense_cost: number
           site_id: string
@@ -1241,38 +1332,73 @@ export type Database = {
       }
       has_wage_visibility: { Args: { p_site_id: string }; Returns: boolean }
       is_supervisor_for_site: { Args: { p_site_id: string }; Returns: boolean }
-      mark_settlement_paid: {
-        Args: {
-          p_amount_paid: number
-          p_marked_by: string
-          p_settlement_id: string
-        }
-        Returns: {
-          amount_paid: number
-          carried_over_due: number
-          created_at: string
-          gross_wages: number
-          id: string
-          labour_id: string
-          last_edited_at: string
-          last_edited_by: string
-          net_payable: number
-          paid_at: string | null
-          payment_mode: string | null
-          payment_reference: string | null
-          payment_status: string
-          site_id: string | null
-          total_advances: number
-          week_end_date: string
-          week_start_date: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "labour_settlements"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
+      mark_settlement_paid:
+        | {
+            Args: {
+              p_amount_paid: number
+              p_marked_by: string
+              p_settlement_id: string
+            }
+            Returns: {
+              amount_paid: number
+              carried_over_due: number
+              created_at: string
+              gross_wages: number
+              id: string
+              labour_id: string
+              last_edited_at: string
+              last_edited_by: string
+              net_payable: number
+              paid_at: string | null
+              payment_mode: string | null
+              payment_reference: string | null
+              payment_status: string
+              site_id: string | null
+              total_advances: number
+              week_end_date: string
+              week_start_date: string
+            }
+            SetofOptions: {
+              from: "*"
+              to: "labour_settlements"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
+        | {
+            Args: {
+              p_amount_paid: number
+              p_marked_by: string
+              p_payment_mode?: string
+              p_payment_reference?: string
+              p_settlement_id: string
+            }
+            Returns: {
+              amount_paid: number
+              carried_over_due: number
+              created_at: string
+              gross_wages: number
+              id: string
+              labour_id: string
+              last_edited_at: string
+              last_edited_by: string
+              net_payable: number
+              paid_at: string | null
+              payment_mode: string | null
+              payment_reference: string | null
+              payment_status: string
+              site_id: string | null
+              total_advances: number
+              week_end_date: string
+              week_start_date: string
+            }
+            SetofOptions: {
+              from: "*"
+              to: "labour_settlements"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
       remove_supervisor_site: {
         Args: { p_site_id: string; p_supervisor_id: string }
         Returns: undefined

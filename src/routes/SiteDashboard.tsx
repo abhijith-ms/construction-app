@@ -129,9 +129,9 @@ export function SiteDashboard() {
     );
   }
 
-  const { site, labourCost, siteExpenses, supplierBills, totalReceived, workforce: _workforce, stockSummary, recentExpenses, recentStockTransactions } = data;
+  const { site, labourCost, siteExpenses, supplierBills, materialUsageCost, totalReceived, workforce: _workforce, stockSummary, recentExpenses, recentStockTransactions } = data;
 
-  const totalSpent = labourCost + siteExpenses + supplierBills;
+  const totalSpent = labourCost + siteExpenses + supplierBills + materialUsageCost;
   const remaining = (site.budget || 0) - totalSpent;
   const netPnL = totalReceived - totalSpent;
 
@@ -275,6 +275,7 @@ function CurrentlyAssignedLabourCard({ siteId }: { siteId: string | undefined })
                 <div className="text-xs text-slate-500 mt-1 space-y-0.5">
                   <p>Labour: {formatCurrency(labourCost)}</p>
                   <p>Expenses: {formatCurrency(siteExpenses)}</p>
+                  <p>Mat. Usage: {formatCurrency(materialUsageCost)}</p>
                   <p>Bills: {formatCurrency(supplierBills)}</p>
                 </div>
               </div>
