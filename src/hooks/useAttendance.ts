@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import type { Tables } from "@/types/database";
 
-type Attendance = Tables<"labour_attendance">;
+type Attendance = Tables<"labour_attendance_secure">;
 
 /**
  * Hook to fetch labour attendance for a specific week and site
@@ -17,7 +17,7 @@ export function useAttendance(siteId: string | null, weekStart: string, weekEnd:
       if (!siteId) return [];
 
       const { data: attendance, error } = await supabase
-        .from("labour_attendance")
+        .from("labour_attendance_secure")
         .select("*")
         .eq("site_id", siteId)
         .gte("date", weekStart)

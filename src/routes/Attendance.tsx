@@ -5,7 +5,7 @@ import { useLabour } from "@/hooks/useLabour";
 import { useAssignedSites } from "@/hooks/useAssignedSites";
 import { useAttendance } from "@/hooks/useAttendance";
 import { useCreateAttendance } from "@/hooks/useCreateAttendance";
-import { useWagePermissions } from "@/hooks/useWagePermissions";
+import { useSiteWagePermission } from "@/hooks/useSiteWagePermission";
 import { useActiveSiteAssignments, type ActiveSiteAssignment } from "@/hooks/useActiveSiteAssignments";
 import { useAuthStore } from "@/stores/authStore";
 import { Button } from "@/components/ui/button";
@@ -68,7 +68,7 @@ export function Attendance() {
     format(addDays(currentWeek, 5), "yyyy-MM-dd"))
   ;
   const { data: activeSiteAssignments, isLoading: assignmentsLoading } = useActiveSiteAssignments(selectedSiteId || null);
-  const { canViewWages } = useWagePermissions();
+  const { canViewWages } = useSiteWagePermission(selectedSiteId || null);
   const { mutate: saveAttendance, isPending: isSaving } = useCreateAttendance();
 
   // Build a lookup map of active assignments by labour_id for auto-fill
@@ -233,12 +233,7 @@ export function Attendance() {
                 <p className="text-sm text-slate-500 capitalize">{worker.default_work_category}</p>
               </div>
             </div>
-            {canViewWages && (
-              <div className="text-right">
-                <p className="text-sm font-medium text-slate-700">₹{cellData.rateApplied || worker.default_daily_rate || 0}</p>
-                <p className="text-xs text-slate-400">daily rate</p>
-              </div>
-            )}
+            {/* Rate display removed - only visible when canViewWages is true for this site */}
           </div>
           
           {/* Status Buttons */}

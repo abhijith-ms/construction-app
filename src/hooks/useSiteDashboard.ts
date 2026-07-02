@@ -116,7 +116,7 @@ export function useSiteDashboard(siteId: string | undefined) {
 
         // 7. This week's workforce - attendance records for this week
         supabase
-          .from("labour_attendance")
+          .from("labour_attendance_secure")
           .select("date, labour_id, status, labour: labour(full_name)")
           .eq("site_id", siteId)
           .gte("date", weekStartStr)
