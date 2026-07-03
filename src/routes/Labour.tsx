@@ -75,6 +75,12 @@ const labourSchema = z.object({
   phone: z.string().optional(),
   default_work_category: z.string().min(1, "Work category is required"),
   default_daily_rate: z.string().min(1, "Daily rate is required"),
+  // Optional site assignment fields
+  assign_to_site: z.boolean().optional(),
+  site_id: z.string().optional(),
+  task_category: z.string().optional(),
+  daily_rate: z.string().optional(),
+  start_date: z.string().optional(),
 });
 
 type LabourFormData = z.infer<typeof labourSchema>;
@@ -146,10 +152,28 @@ export function Labour() {
     handleSubmit,
     reset,
     setValue,
+    watch,
     formState: { errors },
   } = useForm<LabourFormData>({
     resolver: zodResolver(labourSchema),
+    defaultValues: {
+      full_name: "",
+      phone: "",
+      default_work_category: "",
+      default_daily_rate: "",
+      assign_to_site: false,
+      site_id: "",
+      task_category: "",
+      daily_rate: "",
+      start_date: new Date().toISOString().split("T")[0],
+    },
   });
+
+  const assignToSite = watch("assign_to_site");
+  const defaultWorkCategory = watch("default_work_category");
+  const defaultDailyRate = watch("default_daily_rate");
+  const { mutate: createAssignment } = useCreateLabourSiteAssignment();
+  const { data: sites } = useSites();
 
   const onSubmit = (data: LabourFormData) => {
     const rateValue = parseFloat(data.default_daily_rate);
@@ -188,8 +212,33 @@ export function Labour() {
           default_daily_rate: rateValue,
         },
         {
-          onSuccess: () => {
+          onSuccess: (newLabour) => {
             toast.success("Labour created successfully");
+            
+            // If assignment is requested and we have the new labour's ID
+            if (data.assign_to_site && data.site_id && newLabour?.id && profile?.id) {
+              createAssignment(
+                {
+                  labour_id: newLabour.id,
+                  site_id: data.site_id,
+                  task_category: data.task_category || data.default_work_category,
+                  daily_rate: parseFloat(data.daily_rate || data.default_daily_rate),
+                  start_date: data.start_date || new Date().toISOString().split("T")[0],
+                  assigned_by: profile.id,
+                },
+                {
+                  onSuccess: () => {
+                    toast.success("Site assignment created successfully");
+                  },
+                  onError: (error) => {
+                    toast.warning("Worker created but site assignment failed", {
+                      description: error.message + " — please assign manually from Labour page",
+                    });
+                  },
+                }
+              );
+            }
+            
             setIsDialogOpen(false);
             reset();
           },
@@ -348,6 +397,90 @@ export function Labour() {
                     </p>
                   )}
                 </div>
+
+                {/* Optional Site Assignment - Only for Admin creating new labour (not editing) */}
+                {!editingLabour && profile?.role === "admin" && (
+                  <div className="border-t pt-4 mt-4">
+                    <div className="flex items-center gap-2 mb-4">
+                      <input
+                        type="checkbox"
+                        id="assign_to_site"
+                        {...register("assign_to_site")}
+                        className="h-4 w-4 rounded border-gray-300"
+                      />
+                      <Label htmlFor="assign_to_site" className="font-medium cursor-pointer">
+                        Assign to a site now
+                      </Label>
+                    </div>
+
+                    {assignToSite && (
+                      <div className="space-y-4 bg-slate-50 p-4 rounded-lg">
+                        <div className="space-y-2">
+                          <Label htmlFor="site_id">Site *</Label>
+                          <select
+                            id="site_id"
+                            className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+                            {...register("site_id", { required: assignToSite })}
+                          >
+                            <option value="">Select site...</option>
+                            {sites?.map((site) => (
+                              <option key={site.id} value={site.id}>
+                                {site.name}
+                              </option>
+                            ))}
+                          </select>
+                          {errors.site_id && (
+                            <p className="text-sm text-destructive">{errors.site_id.message}</p>
+                          )}
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="task_category">Task Category *</Label>
+                          <select
+                            id="task_category"
+                            className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+                            {...register("task_category")}
+                            defaultValue={defaultWorkCategory || ""}
+                          >
+                            <option value="">Select category...</option>
+                            {WORK_CATEGORIES.map((category) => (
+                              <option key={category} value={category}>
+                                {category}
+                              </option>
+                            ))}
+                          </select>
+                          {errors.task_category && (
+                            <p className="text-sm text-destructive">{errors.task_category.message}</p>
+                          )}
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="daily_rate">Daily Rate (₹) *</Label>
+                          <Input
+                            id="daily_rate"
+                            type="number"
+                            placeholder="e.g., 1300"
+                            {...register("daily_rate")}
+                            defaultValue={defaultDailyRate || ""}
+                          />
+                          {errors.daily_rate && (
+                            <p className="text-sm text-destructive">{errors.daily_rate.message}</p>
+                          )}
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="start_date">Start Date</Label>
+                          <Input
+                            id="start_date"
+                            type="date"
+                            {...register("start_date")}
+                            defaultValue={new Date().toISOString().split("T")[0]}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div className="flex justify-end gap-3 pt-4">
                   <Button

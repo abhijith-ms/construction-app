@@ -129,14 +129,46 @@ export function SiteDashboard() {
     );
   }
 
-  const { site, labourCost, siteExpenses, supplierBills, materialUsageCost, totalReceived, workforce: _workforce, stockSummary, recentExpenses, recentStockTransactions } = data;
+  const { site, labourCost, siteExpenses, supplierBills, materialUsageCost, totalReceived, workforce: _workforce, todaysAttendance, stockSummary, recentExpenses, recentStockTransactions } = data;
 
   const totalSpent = labourCost + siteExpenses + supplierBills + materialUsageCost;
   const remaining = (site.budget || 0) - totalSpent;
   const netPnL = totalReceived - totalSpent;
 
+// Attendance status badge styles
+const attendanceStatusStyles: Record<string, string> = {
+  present: "bg-green-100 text-green-700 border-green-200",
+  half_day: "bg-yellow-100 text-yellow-700 border-yellow-200",
+  absent: "bg-red-100 text-red-700 border-red-200",
+  leave: "bg-slate-100 text-slate-700 border-slate-200",
+};
+
+function AttendanceStatusBadge({ status }: { status: string | undefined }) {
+  if (!status) {
+    return (
+      <Badge variant="outline" className="bg-slate-50 text-slate-500 border-slate-200">
+        Not Marked
+      </Badge>
+    );
+  }
+
+  const style = attendanceStatusStyles[status] || "bg-slate-100 text-slate-700 border-slate-200";
+  const label = status === "half_day" ? "Half Day" : status.charAt(0).toUpperCase() + status.slice(1);
+
+  return (
+    <Badge variant="outline" className={style}>
+      {label}
+    </Badge>
+  );
+}
+
 // Component for Currently Assigned Labour Card
-function CurrentlyAssignedLabourCard({ siteId }: { siteId: string | undefined }) {
+interface CurrentlyAssignedLabourCardProps {
+  siteId: string | undefined;
+  todaysAttendance: Map<string, "present" | "absent" | "half_day" | "leave">;
+}
+
+function CurrentlyAssignedLabourCard({ siteId, todaysAttendance }: CurrentlyAssignedLabourCardProps) {
   const { data: assignments, isLoading } = useActiveSiteAssignments(siteId || null);
   const { canViewWages, isLoading: isLoadingPermissions } = useWagePermissions();
 
@@ -179,34 +211,39 @@ function CurrentlyAssignedLabourCard({ siteId }: { siteId: string | undefined })
           </div>
         ) : (
           <div className="space-y-2 max-h-[300px] overflow-y-auto">
-            {assignments?.map((assignment) => (
-              <div
-                key={assignment.id}
-                className="flex items-center justify-between p-2 hover:bg-slate-50 rounded"
-              >
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-slate-900 truncate">
-                    {assignment.labour_name || "Unknown Labourer"}
-                  </p>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <Badge variant="outline" className="text-xs capitalize">
-                      {assignment.task_category}
-                    </Badge>
+            {assignments?.map((assignment) => {
+              const todayStatus = todaysAttendance.get(assignment.labour_id);
+              return (
+                <div
+                  key={assignment.id}
+                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-2 hover:bg-slate-50 rounded gap-2"
+                >
+                  {/* Mobile: Stacked layout */}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-slate-900 truncate">
+                      {assignment.labour_name || "Unknown Labourer"}
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2 mt-1">
+                      <Badge variant="outline" className="text-xs capitalize">
+                        {assignment.task_category}
+                      </Badge>
+                      {canViewWages && (
+                        <span className="font-mono text-xs text-slate-600">
+                          {formatCurrency(assignment.daily_rate)}/day
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {/* Desktop: Side by side, Mobile: Stacked below */}
+                  <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-4">
+                    <AttendanceStatusBadge status={todayStatus} />
+                    <span className="text-xs text-slate-400 sm:ml-2">
+                      Since {format(new Date(assignment.start_date), "dd MMM yyyy")}
+                    </span>
                   </div>
                 </div>
-                <div className="text-right">
-                  {canViewWages && (
-                    <p className="font-mono font-medium text-slate-700">
-                      {formatCurrency(assignment.daily_rate)}
-                      <span className="text-xs text-slate-400 ml-1">/day</span>
-                    </p>
-                  )}
-                  <p className="text-xs text-slate-400">
-                    Since {format(new Date(assignment.start_date), "dd MMM yyyy")}
-                  </p>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </CardContent>
@@ -318,7 +355,7 @@ function CurrentlyAssignedLabourCard({ siteId }: { siteId: string | undefined })
         </Card>
 
         {/* Card 3: Currently Assigned Labour */}
-        <CurrentlyAssignedLabourCard siteId={id} />
+        <CurrentlyAssignedLabourCard siteId={id} todaysAttendance={todaysAttendance} />
 
         {/* Card 4: Stock Summary */}
         <Card>

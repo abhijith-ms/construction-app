@@ -7,10 +7,13 @@ import { useAttendance } from "@/hooks/useAttendance";
 import { useCreateAttendance } from "@/hooks/useCreateAttendance";
 import { useSiteWagePermission } from "@/hooks/useSiteWagePermission";
 import { useActiveSiteAssignments, type ActiveSiteAssignment } from "@/hooks/useActiveSiteAssignments";
+import { useAllSitesAttendance, type AllSitesAttendanceData } from "@/hooks/useAllSitesAttendance";
 import { useAuthStore } from "@/stores/authStore";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { ChevronLeft, ChevronRight, Save, Calendar, User } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ChevronLeft, ChevronRight, Save, Calendar, User, Building2 } from "lucide-react";
 import type { TablesInsert } from "@/types/database";
 
 type AttendanceStatus = "present" | "absent" | "half_day" | "leave";
@@ -31,6 +34,154 @@ const WORK_CATEGORIES = [
   "plumber",
 ];
 
+// Attendance status badge styles (matching SiteDashboard.tsx)
+const attendanceStatusStyles: Record<string, string> = {
+  present: "bg-green-100 text-green-700 border-green-200",
+  half_day: "bg-yellow-100 text-yellow-700 border-yellow-200",
+  absent: "bg-red-100 text-red-700 border-red-200",
+  leave: "bg-slate-100 text-slate-700 border-slate-200",
+};
+
+interface AllSitesViewProps {
+  data: AllSitesAttendanceData | undefined;
+  isLoading: boolean;
+}
+
+function AllSitesView({ data, isLoading }: AllSitesViewProps) {
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="py-12 text-center">
+          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />
+          <p className="mt-3 text-slate-500">Loading attendance overview...</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!data || data.sites.length === 0) {
+    return (
+      <Card>
+        <CardContent className="py-12 text-center text-slate-500">
+          No sites found or no attendance data available
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const today = format(new Date(), "EEEE, MMMM d, yyyy");
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between px-1">
+        <p className="text-sm text-slate-500">
+          {data.sites.filter(s => s.markedCount > 0).length} / {data.sites.length} sites with attendance today
+        </p>
+        <p className="text-sm font-medium text-slate-700">{today}</p>
+      </div>
+
+      {/* Desktop: Grid of cards */}
+      <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        {data.sites.map((site) => (
+          <Card key={site.siteId} className="hover:shadow-md transition-shadow">
+            <CardHeader className="pb-3">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-2">
+                  <Building2 className="h-4 w-4 text-slate-500" />
+                  <CardTitle className="text-base font-semibold">{site.siteName}</CardTitle>
+                </div>
+                <Badge variant={site.markedCount > 0 ? "default" : "secondary"} className="text-xs">
+                  {site.markedCount} marked
+                </Badge>
+              </div>
+              <CardDescription className="text-xs">
+                {site.workers.length} workers with attendance today
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0">
+              {site.workers.length > 0 ? (
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {site.workers.map((worker) => (
+                    <div key={worker.labourId} className="flex items-center justify-between py-1.5 border-b border-slate-100 last:border-0">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{worker.labourName}</p>
+                        <p className="text-xs text-slate-500 capitalize">{worker.workCategory}</p>
+                      </div>
+                      <AttendanceStatusBadge status={worker.status} />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-slate-400 italic text-center py-4">No workers marked today</p>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Mobile: Stacked cards */}
+      <div className="md:hidden space-y-3">
+        {data.sites.map((site) => (
+          <Card key={site.siteId} className="shadow-sm">
+            <CardHeader className="p-3 pb-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Building2 className="h-4 w-4 text-slate-500" />
+                  <CardTitle className="text-sm font-semibold">{site.siteName}</CardTitle>
+                </div>
+                <Badge variant={site.markedCount > 0 ? "default" : "secondary"} className="text-xs">
+                  {site.markedCount} marked
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="p-3 pt-0">
+              {site.workers.length > 0 ? (
+                <div className="space-y-2">
+                  {site.workers.slice(0, 5).map((worker) => (
+                    <div key={worker.labourId} className="flex items-center justify-between py-1 border-b border-slate-100 last:border-0">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{worker.labourName}</p>
+                        <p className="text-xs text-slate-500 capitalize">{worker.workCategory || "No category"}</p>
+                      </div>
+                      <AttendanceStatusBadge status={worker.status} />
+                    </div>
+                  ))}
+                  {site.workers.length > 5 && (
+                    <p className="text-xs text-slate-400 text-center py-1">
+                      +{site.workers.length - 5} more workers
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <p className="text-sm text-slate-400 italic text-center py-4">No workers marked today</p>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AttendanceStatusBadge({ status }: { status: "present" | "absent" | "half_day" | "leave" | null | undefined }) {
+  if (!status) {
+    return (
+      <Badge variant="outline" className="bg-slate-50 text-slate-500 border-slate-200 text-xs">
+        Not Marked
+      </Badge>
+    );
+  }
+
+  const style = attendanceStatusStyles[status] || "bg-slate-100 text-slate-700 border-slate-200";
+  const label = status === "half_day" ? "Half Day" : status.charAt(0).toUpperCase() + status.slice(1);
+
+  return (
+    <Badge variant="outline" className={`${style} text-xs`}>
+      {label}
+    </Badge>
+  );
+}
+
 type AttendanceRecord = {
   labourId: string;
   date: string; // YYYY-MM-DD
@@ -48,11 +199,13 @@ function getWeekMonday(date: Date): Date {
   return monday;
 }
 
-
 export function Attendance() {
   // Week state (always Monday-based)
   const [currentWeek, setCurrentWeek] = useState<Date>(() => getWeekMonday(new Date()));
   const [selectedSiteId, setSelectedSiteId] = useState<string>("");
+  
+  // View mode: "single" | "all" - only for Admin/Office Manager
+  const [viewMode, setViewMode] = useState<"single" | "all">("single");
   
   // Mobile-only: Select day index (0-5 for Mon-Sat)
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(0);
@@ -60,16 +213,32 @@ export function Attendance() {
   // Track unsaved changes
   const [attendanceState, setAttendanceState] = useState<Map<string, AttendanceRecord>>(new Map());
 
+  const { profile } = useAuthStore();
+  const isAdminOrOffice = profile?.role === "admin" || profile?.role === "office_manager";
+
   const { data: sites, isLoading: sitesLoading } = useAssignedSites();
   const { data: labour, isLoading: labourLoading } = useLabour();
   const { data: existingAttendance, isLoading: attendanceLoading } = useAttendance(
     selectedSiteId || null,
     format(currentWeek, "yyyy-MM-dd"),
-    format(addDays(currentWeek, 5), "yyyy-MM-dd"))
-  ;
+    format(addDays(currentWeek, 5), "yyyy-MM-dd")
+  );
   const { data: activeSiteAssignments, isLoading: assignmentsLoading } = useActiveSiteAssignments(selectedSiteId || null);
   const { canViewWages } = useSiteWagePermission(selectedSiteId || null);
   const { mutate: saveAttendance, isPending: isSaving } = useCreateAttendance();
+  
+  // All sites overview
+  const [viewDate] = useState<string>(format(new Date(), "yyyy-MM-dd"));
+  const { data: allSitesAttendance, isLoading: allSitesLoading } = useAllSitesAttendance(
+    viewMode === "all" ? viewDate : ""
+  );
+
+  // Compute week dates (Mon-Sat)
+  const weekDates = useMemo(() => {
+    return Array.from({ length: 6 }, (_, i) => addDays(currentWeek, i));
+  }, [currentWeek]);
+
+  const selectedDate = weekDates[selectedDayIndex];
 
   // Build a lookup map of active assignments by labour_id for auto-fill
   const assignmentsByLabourId = useMemo(() => {
@@ -79,11 +248,6 @@ export function Attendance() {
     });
     return map;
   }, [activeSiteAssignments]);
-
-  // Compute week dates (Mon-Sat)
-  const weekDates = useMemo(() => {
-    return Array.from({ length: 6 }, (_, i) => addDays(currentWeek, i));
-  }, [currentWeek]);
 
   // Initialize state from existing data when it loads
   useEffect(() => {
@@ -100,8 +264,8 @@ export function Attendance() {
         });
       });
       setAttendanceState(newMap);
-    } else if (attendanceState.size > 0) {
-      // Only reset if we actually have data to clear
+    } else if (selectedSiteId === "") {
+      // Clear state when no site selected
       setAttendanceState(new Map());
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -198,10 +362,9 @@ export function Attendance() {
   };
 
   const isLoading = sitesLoading || labourLoading || attendanceLoading || assignmentsLoading;
-  const activeWorkers = labour?.filter(l => l.is_active) || [];
-  const selectedDate = weekDates[selectedDayIndex];
+  const activeWorkers = labour?.filter((l) => l.is_active) || [];
 
-  // Worker card component for mobile - memoized to prevent unnecessary re-renders
+  // Worker card component for mobile
   const WorkerAttendanceCard = React.memo(({ 
     worker, 
     dateStr 
@@ -215,9 +378,6 @@ export function Attendance() {
       worker.default_work_category || "",
       worker.default_daily_rate || 0
     );
-    
-    // Status config for potential future use (color coding, etc.)
-    // const statusConfig = ATTENDANCE_STATUS_OPTIONS.find(s => s.value === cellData.status);
     
     return (
       <Card className="shadow-sm">
@@ -233,7 +393,6 @@ export function Attendance() {
                 <p className="text-sm text-slate-500 capitalize">{worker.default_work_category}</p>
               </div>
             </div>
-            {/* Rate display removed - only visible when canViewWages is true for this site */}
           </div>
           
           {/* Status Buttons */}
@@ -291,12 +450,12 @@ export function Attendance() {
   const workersWithAttendance = useMemo(() => {
     if (!selectedSiteId) return 0;
     const dateStr = format(selectedDate, "yyyy-MM-dd");
-    return activeWorkers.filter(worker => {
+    return activeWorkers.filter((worker) => {
       const record = getCellData(worker.id, dateStr, 
         worker.default_work_category || "", worker.default_daily_rate || 0);
       return record.status;
     }).length;
-  }, [activeWorkers, selectedDate, attendanceState, selectedSiteId]);
+  }, [activeWorkers, selectedDate, attendanceState, selectedSiteId, getCellData]);
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -304,69 +463,97 @@ export function Attendance() {
       <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-xl md:text-3xl font-bold text-slate-900">Labour Attendance</h1>
-          <p className="text-sm md:text-base text-slate-500 mt-0.5 md:mt-1">Mark daily attendance for workers</p>
+          <p className="text-sm md:text-base text-slate-500 mt-0.5 md:mt-1">
+            {viewMode === "all" ? "Overview of all sites" : "Mark daily attendance for workers"}
+          </p>
         </div>
-        {/* Desktop Save button */}
-        <div className="hidden md:block">
-          <Button onClick={handleSave} disabled={isSaving || !selectedSiteId}>
-            {isSaving ? "Saving..." : <><Save className="h-4 w-4 mr-2" /> Save Week</>}
-          </Button>
-        </div>
+        {/* Desktop Save button - only in Single Site mode */}
+        {viewMode === "single" && (
+          <div className="hidden md:block">
+            <Button onClick={handleSave} disabled={isSaving || !selectedSiteId}>
+              {isSaving ? "Saving..." : <><Save className="h-4 w-4 mr-2" /> Save Week</>}
+            </Button>
+          </div>
+        )}
       </div>
 
-      {/* Site Selector - Full width on mobile */}
-      <Card className="shadow-sm">
-        <CardContent className="p-3 md:p-4">
-          <div className="flex flex-col gap-3">
-            {/* Site Selector */}
-            <div className="w-full">
-              <label className="text-sm font-medium text-slate-700 mb-1.5 block">Site</label>
-              <select
-                className="h-12 w-full rounded-lg border border-input bg-white px-3 text-base shadow-sm"
-                value={selectedSiteId}
-                onChange={(e) => {
-                  setSelectedSiteId(e.target.value);
-                  setAttendanceState(new Map());
-                }}
-              >
-                <option value="">Select a site</option>
-                {sites.map((site) => (
-                  <option key={site.id} value={site.id}>
-                    {site.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+      {/* View Mode Toggle - Admin/Office Manager only */}
+      {isAdminOrOffice && (
+        <Card className="shadow-sm">
+          <CardContent className="p-3 md:p-4">
+            <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "single" | "all")} className="w-full">
+              <TabsList className="grid w-full max-w-md grid-cols-2">
+                <TabsTrigger value="single">Single Site</TabsTrigger>
+                <TabsTrigger value="all">All Sites Overview</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </CardContent>
+        </Card>
+      )}
 
-            {/* Week Navigation */}
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => handleWeekChange("prev")}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <div className="flex items-center gap-2 px-3">
-                <Calendar className="h-4 w-4 text-slate-500" />
-                <span className="text-sm font-medium">
-                  {format(currentWeek, "MMM d")} - {format(addDays(currentWeek, 5), "MMM d, yyyy")}
-                </span>
+      {/* Site Selector - Full width on mobile - only in Single Site mode */}
+      {viewMode === "single" && (
+        <Card className="shadow-sm">
+          <CardContent className="p-3 md:p-4">
+            <div className="flex flex-col gap-3">
+              {/* Site Selector */}
+              <div className="w-full">
+                <label className="text-sm font-medium text-slate-700 mb-1.5 block">Site</label>
+                <select
+                  className="h-12 w-full rounded-lg border border-input bg-white px-3 text-base shadow-sm"
+                  value={selectedSiteId}
+                  onChange={(e) => {
+                    setSelectedSiteId(e.target.value);
+                    setAttendanceState(new Map());
+                  }}
+                >
+                  <option value="">Select a site</option>
+                  {sites.map((site) => (
+                    <option key={site.id} value={site.id}>
+                      {site.name}
+                    </option>
+                  ))}
+                </select>
               </div>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => handleWeekChange("next")}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
+
+              {/* Week Navigation - only in Single Site mode */}
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => handleWeekChange("prev")}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <div className="flex items-center gap-2 px-3">
+                  <Calendar className="h-4 w-4 text-slate-500" />
+                  <span className="text-sm font-medium">
+                    {format(currentWeek, "MMM d")} - {format(addDays(currentWeek, 5), "MMM d, yyyy")}
+                  </span>
+                </div>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => handleWeekChange("next")}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* All Sites Overview */}
+      {viewMode === "all" && (
+        <AllSitesView 
+          data={allSitesAttendance} 
+          isLoading={allSitesLoading}
+        />
+      )}
 
       {/* Day Tabs - Mobile Only */}
-      {selectedSiteId && (
+      {viewMode === "single" && selectedSiteId && (
         <div className="flex gap-1 overflow-x-auto scrollbar-hide md:hidden">
           {weekDates.map((date, idx) => {
             const isSelected = idx === selectedDayIndex;
@@ -390,171 +577,190 @@ export function Attendance() {
         </div>
       )}
 
-      {/* Attendance Content */}
-      {selectedSiteId ? (
-        <div className="space-y-4">
-          {isLoading ? (
+      {/* Single Site Attendance Content */}
+      {viewMode === "single" && (
+        <>
+          {selectedSiteId ? (
+            <div className="space-y-4">
+              {isLoading ? (
+                <Card>
+                  <CardContent className="py-12 text-center">
+                    <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />
+                    <p className="mt-3 text-slate-500">Loading...</p>
+                  </CardContent>
+                </Card>
+              ) : activeWorkers.length === 0 ? (
+                <Card>
+                  <CardContent className="py-12 text-center text-slate-500">
+                    No active workers found
+                  </CardContent>
+                </Card>
+              ) : (
+                <>
+                  {/* Mobile: Card Layout */}
+                  <div className="md:hidden space-y-3">
+                    <div className="flex items-center justify-between px-1">
+                      <p className="text-sm text-slate-500">
+                        {workersWithAttendance}/{activeWorkers.length} marked
+                      </p>
+                      <p className="text-sm font-medium text-slate-700">
+                        {format(selectedDate, "EEEE, MMM d")}
+                      </p>
+                    </div>
+                    {activeWorkers.map((worker) => (
+                      <WorkerAttendanceCard
+                        key={worker.id}
+                        worker={worker}
+                        dateStr={format(selectedDate, "yyyy-MM-dd")}
+                      />
+                    ))}
+                  </div>
+
+                  {/* Desktop: Table Layout */}
+                  <Card className="hidden md:block">
+                    <CardContent className="p-4">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b">
+                              <th className="text-left py-2 px-3 font-semibold text-slate-700 min-w-[150px]">
+                                Worker
+                              </th>
+                              {weekDates.map((date) => (
+                                <th
+                                  key={date.toISOString()}
+                                  className="text-center py-2 px-2 font-semibold text-slate-700 min-w-[120px]"
+                                >
+                                  <div className="text-xs text-slate-500">{format(date, "EEE")}</div>
+                                  <div>{format(date, "d")}</div>
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y">
+                            {(labour ?? [])
+                              .filter((l) => l.is_active)
+                              .map((worker) => (
+                                <tr key={worker.id} className="hover:bg-slate-50">
+                                  <td className="py-2 px-3">
+                                    <div className="font-medium">{worker.full_name}</div>
+                                    <div className="text-xs text-slate-500 capitalize">
+                                      {worker.default_work_category}
+                                    </div>
+                                  </td>
+                                  {weekDates.map((date) => {
+                                    const dateStr = format(date, "yyyy-MM-dd");
+                                    const cellData = getCellData(
+                                      worker.id,
+                                      dateStr,
+                                      worker.default_work_category,
+                                      worker.default_daily_rate
+                                    );
+
+                                    return (
+                                      <td key={dateStr} className="p-2">
+                                        <div className="space-y-1">
+                                          {/* Status Dropdown */}
+                                          <select
+                                            className="w-full h-7 text-xs rounded border border-input px-1"
+                                            value={cellData.status || ""}
+                                            onChange={(e) =>
+                                              updateCell(worker.id, dateStr, {
+                                                status: (e.target.value as AttendanceStatus) || "",
+                                              })
+                                            }
+                                          >
+                                            <option value="">—</option>
+                                            {ATTENDANCE_STATUS_OPTIONS.map((opt) => (
+                                              <option key={opt.value} value={opt.value}>
+                                                {opt.label}
+                                              </option>
+                                            ))}
+                                          </select>
+
+                                          {/* Work Category */}
+                                          <select
+                                            className="w-full h-7 text-xs rounded border border-input px-1"
+                                            value={cellData.workCategory || worker.default_work_category}
+                                            onChange={(e) =>
+                                              updateCell(worker.id, dateStr, {
+                                                workCategory: e.target.value,
+                                              })
+                                            }
+                                          >
+                                            {WORK_CATEGORIES.map((cat) => (
+                                              <option key={cat} value={cat}>
+                                                {cat}
+                                              </option>
+                                            ))}
+                                          </select>
+
+                                          {/* Rate - hidden for supervisors without permission */}
+                                          {canViewWages && (
+                                            <input
+                                              type="number"
+                                              className="w-full h-7 text-xs rounded border border-input px-1"
+                                              value={cellData.rateApplied || ""}
+                                              onChange={(e) =>
+                                                updateCell(worker.id, dateStr, {
+                                                  rateApplied: parseFloat(e.target.value) || "",
+                                                })
+                                              }
+                                              placeholder="Rate"
+                                            />
+                                          )}
+                                        </div>
+                                      </td>
+                                    );
+                                  })}
+                                </tr>
+                              ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </>
+              )}
+            </div>
+          ) : (
             <Card>
               <CardContent className="py-12 text-center">
-                <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />
-                <p className="mt-3 text-slate-500">Loading...</p>
+                <p className="text-slate-500">Select a site to view and edit attendance</p>
               </CardContent>
             </Card>
-          ) : activeWorkers.length === 0 ? (
-            <Card>
-              <CardContent className="py-12 text-center text-slate-500">
-                No active workers found
-              </CardContent>
-            </Card>
-          ) : (
-            <>
-              {/* Mobile: Card Layout */}
-              <div className="md:hidden space-y-3">
-                <div className="flex items-center justify-between px-1">
-                  <p className="text-sm text-slate-500">
-                    {workersWithAttendance}/{activeWorkers.length} marked
-                  </p>
-                  <p className="text-sm font-medium text-slate-700">
-                    {format(selectedDate, "EEEE, MMM d")}
-                  </p>
-                </div>
-                {activeWorkers.map((worker) => (
-                  <WorkerAttendanceCard
-                    key={worker.id}
-                    worker={worker}
-                    dateStr={format(selectedDate, "yyyy-MM-dd")}
-                  />
-                ))}
-              </div>
-
-              {/* Desktop: Table Layout */}
-              <Card className="hidden md:block">
-                <CardContent className="p-4">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b">
-                          <th className="text-left py-2 px-3 font-semibold text-slate-700 min-w-[150px]">
-                            Worker
-                          </th>
-                          {weekDates.map((date) => (
-                            <th
-                              key={date.toISOString()}
-                              className="text-center py-2 px-2 font-semibold text-slate-700 min-w-[120px]"
-                            >
-                              <div className="text-xs text-slate-500">{format(date, "EEE")}</div>
-                              <div>{format(date, "d")}</div>
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y">
-                        {(labour ?? [])
-                      .filter((l) => l.is_active)
-                      .map((worker) => (
-                        <tr key={worker.id} className="hover:bg-slate-50">
-                          <td className="py-2 px-3">
-                            <div className="font-medium">{worker.full_name}</div>
-                            <div className="text-xs text-slate-500 capitalize">
-                              {worker.default_work_category}
-                            </div>
-                          </td>
-                          {weekDates.map((date) => {
-                            const dateStr = format(date, "yyyy-MM-dd");
-                            const cellData = getCellData(
-                              worker.id,
-                              dateStr,
-                              worker.default_work_category,
-                              worker.default_daily_rate
-                            );
-
-                            return (
-                              <td key={dateStr} className="p-2">
-                                <div className="space-y-1">
-                                  {/* Status Dropdown */}
-                                  <select
-                                    className="w-full h-7 text-xs rounded border border-input px-1"
-                                    value={cellData.status || ""}
-                                    onChange={(e) =>
-                                      updateCell(worker.id, dateStr, {
-                                        status: (e.target.value as AttendanceStatus) || "",
-                                      })
-                                    }
-                                  >
-                                    <option value="">—</option>
-                                    {ATTENDANCE_STATUS_OPTIONS.map((opt) => (
-                                      <option key={opt.value} value={opt.value}>
-                                        {opt.label}
-                                      </option>
-                                    ))}
-                                  </select>
-
-                                  {/* Work Category */}
-                                  <select
-                                    className="w-full h-7 text-xs rounded border border-input px-1"
-                                    value={cellData.workCategory || worker.default_work_category}
-                                    onChange={(e) =>
-                                      updateCell(worker.id, dateStr, {
-                                        workCategory: e.target.value,
-                                      })
-                                    }
-                                  >
-                                    {WORK_CATEGORIES.map((cat) => (
-                                      <option key={cat} value={cat}>
-                                        {cat}
-                                      </option>
-                                    ))}
-                                  </select>
-
-                                  {/* Rate - hidden for supervisors without permission */}
-                                  {canViewWages && (
-                                    <input
-                                      type="number"
-                                      className="w-full h-7 text-xs rounded border border-input px-1"
-                                      value={cellData.rateApplied || ""}
-                                      onChange={(e) =>
-                                        updateCell(worker.id, dateStr, {
-                                          rateApplied: parseFloat(e.target.value) || "",
-                                        })
-                                      }
-                                      placeholder="Rate"
-                                    />
-                                  )}
-                                </div>
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </CardContent>
-              </Card>
-            </>
           )}
-        </div>
-      ) : (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <p className="text-slate-500">Select a site to view and edit attendance</p>
-          </CardContent>
-        </Card>
+        </>
       )}
 
-      {/* Mobile: Fixed Save Button */}
-      <div className="fixed bottom-20 left-0 right-0 px-4 md:hidden z-40">
-        <Button 
-          onClick={handleSave} 
-          disabled={isSaving || !selectedSiteId}
-          className="w-full h-14 text-lg font-semibold shadow-lg"
-        >
-          {isSaving ? "Saving..." : "Save Day"}
-        </Button>
-      </div>
+      {/* Mobile: Fixed Save Button - only in Single Site mode */}
+      {viewMode === "single" && (
+        <div className="fixed bottom-20 left-0 right-0 px-4 md:hidden z-40">
+          <Button 
+            onClick={handleSave} 
+            disabled={isSaving || !selectedSiteId}
+            className="w-full h-14 text-lg font-semibold shadow-lg"
+          >
+            {isSaving ? "Saving..." : "Save Day"}
+          </Button>
+        </div>
+      )}
 
       {/* Add bottom padding for mobile to account for fixed save button */}
       <div className="h-16 md:hidden" />
+
+      {/* Fixed floating button to go back to Single Site view on mobile when in All Sites mode */}
+      {viewMode === "all" && (
+        <div className="fixed bottom-20 left-0 right-0 px-4 md:hidden z-40">
+          <Button
+            onClick={() => setViewMode("single")}
+            variant="default"
+            className="w-full h-14 text-lg font-semibold shadow-lg"
+          >
+            <ChevronLeft className="h-5 w-5 mr-2" /> Back to Single Site
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

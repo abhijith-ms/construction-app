@@ -5,6 +5,7 @@ import type { Database } from "@/types/database";
 type Site = Database["public"]["Tables"]["sites"]["Row"];
 type SiteExpense = Database["public"]["Tables"]["site_expenses"]["Row"];
 type StockTransaction = Database["public"]["Tables"]["stock_transactions"]["Row"];
+type AttendanceStatus = "present" | "absent" | "half_day" | "leave";
 
 interface DashboardData {
   site: Site | null;
@@ -21,6 +22,7 @@ interface DashboardData {
       status: string | null;
     }>;
   };
+  todaysAttendance: Map<string, AttendanceStatus>;
   stockSummary: Array<{
     material_id: string;
     name: string;
@@ -72,6 +74,7 @@ export function useSiteDashboard(siteId: string | undefined) {
         materialUsageResult,
         totalReceivedResult,
         workforceResult,
+        todaysAttendanceResult,
         stockSummaryResult,
         recentExpensesResult,
         recentStockTransactionsResult,
@@ -122,14 +125,21 @@ export function useSiteDashboard(siteId: string | undefined) {
           .gte("date", weekStartStr)
           .lte("date", weekEndStr),
 
-        // 8. Stock summary - materials with quantities for this site
+        // 8. Today's attendance for status lookups
+        supabase
+          .from("labour_attendance_secure")
+          .select("labour_id, status")
+          .eq("site_id", siteId)
+          .eq("date", todayStr),
+
+        // 9. Stock summary - materials with quantities for this site
         supabase
           .from("stock_levels")
           .select("quantity_on_hand, material: materials(id, name, unit)")
           .eq("site_id", siteId)
           .gt("quantity_on_hand", 0),
 
-        // 9. Recent site expenses (last 7 days, limit 5)
+        // 10. Recent site expenses (last 7 days, limit 5)
         supabase
           .from("site_expenses")
           .select("*")
@@ -138,7 +148,7 @@ export function useSiteDashboard(siteId: string | undefined) {
           .order("date", { ascending: false })
           .limit(5),
 
-        // 10. Recent stock transactions (last 7 days, limit 5)
+        // 11. Recent stock transactions (last 7 days, limit 5)
         supabase
           .from("stock_transactions")
           .select("*, material: materials(name, unit)")
@@ -198,6 +208,15 @@ export function useSiteDashboard(siteId: string | undefined) {
         status: data.status,
       }));
 
+      // Process today's attendance into a Map for O(1) lookup
+      const todaysAttendanceData = todaysAttendanceResult.data || [];
+      const todaysAttendance = new Map<string, AttendanceStatus>();
+      todaysAttendanceData.forEach((record: any) => {
+        if (record.labour_id && record.status) {
+          todaysAttendance.set(record.labour_id, record.status as AttendanceStatus);
+        }
+      });
+
       // Process stock summary - map to typed array
       const stockSummary = (stockSummaryResult.data || []).map((record: any) => ({
         material_id: record.material?.id || "",
@@ -223,6 +242,7 @@ export function useSiteDashboard(siteId: string | undefined) {
           count: workers.length,
           workers,
         },
+        todaysAttendance,
         stockSummary,
         recentExpenses: recentExpensesResult.data || [],
         recentStockTransactions,
