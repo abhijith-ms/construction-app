@@ -400,26 +400,28 @@ export function Labour() {
 
                 {/* Optional Site Assignment - Only for Admin creating new labour (not editing) */}
                 {!editingLabour && profile?.role === "admin" && (
-                  <div className="border-t pt-4 mt-4">
-                    <div className="flex items-center gap-2 mb-4">
+                  <div className="border-t border-slate-200 pt-4 mt-4">
+                    <div className="flex items-center gap-3 mb-4">
                       <input
                         type="checkbox"
                         id="assign_to_site"
                         {...register("assign_to_site")}
-                        className="h-4 w-4 rounded border-gray-300"
+                        className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary"
                       />
-                      <Label htmlFor="assign_to_site" className="font-medium cursor-pointer">
+                      <Label htmlFor="assign_to_site" className="text-sm font-medium text-slate-900 cursor-pointer">
                         Assign to a site now
                       </Label>
                     </div>
 
                     {assignToSite && (
-                      <div className="space-y-4 bg-slate-50 p-4 rounded-lg">
+                      <div className="space-y-4 bg-slate-50 p-4 rounded-lg border border-slate-200">
                         <div className="space-y-2">
-                          <Label htmlFor="site_id">Site *</Label>
+                          <Label htmlFor="site_id" className="text-sm font-medium text-slate-900">
+                            Site <span className="text-red-500">*</span>
+                          </Label>
                           <select
                             id="site_id"
-                            className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+                            className="w-full h-10 px-3 rounded-md border border-slate-300 bg-white text-sm text-slate-900"
                             {...register("site_id", { required: assignToSite })}
                           >
                             <option value="">Select site...</option>
@@ -430,51 +432,59 @@ export function Labour() {
                             ))}
                           </select>
                           {errors.site_id && (
-                            <p className="text-sm text-destructive">{errors.site_id.message}</p>
+                            <p className="text-sm text-red-500">{errors.site_id.message}</p>
                           )}
                         </div>
 
                         <div className="space-y-2">
-                          <Label htmlFor="task_category">Task Category *</Label>
+                          <Label htmlFor="task_category" className="text-sm font-medium text-slate-900">
+                            Task Category <span className="text-red-500">*</span>
+                          </Label>
                           <select
                             id="task_category"
-                            className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+                            className="w-full h-10 px-3 rounded-md border border-slate-300 bg-white text-sm text-slate-900"
                             {...register("task_category")}
                             defaultValue={defaultWorkCategory || ""}
                           >
                             <option value="">Select category...</option>
                             {WORK_CATEGORIES.map((category) => (
                               <option key={category} value={category}>
-                                {category}
+                                {category.charAt(0).toUpperCase() + category.slice(1)}
                               </option>
                             ))}
                           </select>
                           {errors.task_category && (
-                            <p className="text-sm text-destructive">{errors.task_category.message}</p>
+                            <p className="text-sm text-red-500">{errors.task_category.message}</p>
                           )}
                         </div>
 
                         <div className="space-y-2">
-                          <Label htmlFor="daily_rate">Daily Rate (₹) *</Label>
+                          <Label htmlFor="daily_rate" className="text-sm font-medium text-slate-900">
+                            Daily Rate (₹) <span className="text-red-500">*</span>
+                          </Label>
                           <Input
                             id="daily_rate"
                             type="number"
                             placeholder="e.g., 1300"
                             {...register("daily_rate")}
                             defaultValue={defaultDailyRate || ""}
+                            className="text-slate-900"
                           />
                           {errors.daily_rate && (
-                            <p className="text-sm text-destructive">{errors.daily_rate.message}</p>
+                            <p className="text-sm text-red-500">{errors.daily_rate.message}</p>
                           )}
                         </div>
 
                         <div className="space-y-2">
-                          <Label htmlFor="start_date">Start Date</Label>
+                          <Label htmlFor="start_date" className="text-sm font-medium text-slate-900">
+                            Start Date
+                          </Label>
                           <Input
                             id="start_date"
                             type="date"
                             {...register("start_date")}
                             defaultValue={new Date().toISOString().split("T")[0]}
+                            className="text-slate-900"
                           />
                         </div>
                       </div>
