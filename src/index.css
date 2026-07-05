@@ -20,6 +20,17 @@
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--input));
   --color-ring: hsl(var(--ring));
+  /* Sidebar colors for shadcn/ui */
+  --color-sidebar: hsl(var(--sidebar));
+  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
+  --color-sidebar-primary: hsl(var(--sidebar-primary));
+  --color-sidebar-primary-foreground: hsl(var(--sidebar-primary-foreground));
+  --color-sidebar-secondary: hsl(var(--sidebar-secondary));
+  --color-sidebar-secondary-foreground: hsl(var(--sidebar-secondary-foreground));
+  --color-sidebar-accent: hsl(var(--sidebar-accent));
+  --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
+  --color-sidebar-border: hsl(var(--sidebar-border));
+  --color-sidebar-ring: hsl(var(--sidebar-ring));
   /* Construction App Custom Colors */
   --color-construction: #F97316;
   --color-construction-dark: #EA580C;
@@ -46,13 +57,23 @@
   --destructive-foreground: 210 40% 98%;
   --border: 214.3 31.8% 91.4%;
   --input: 214.3 31.8% 91.4%;
-  --ring: 222.2 84% 4.9%;
+  --ring: 24.6 95% 53.1%;
   --radius: 0.5rem;
+  /* Sidebar variables for shadcn/ui */
+  --sidebar: 0 0% 100%;
+  --sidebar-foreground: 222.2 84% 4.9%;
+  --sidebar-primary: 24.6 95% 53.1%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-secondary: 210 40% 96.1%;
+  --sidebar-secondary-foreground: 222.2 47.4% 11.2%;
+  --sidebar-accent: 210 40% 96.1%;
+  --sidebar-accent-foreground: 222.2 47.4% 11.2%;
+  --sidebar-border: 214.3 31.8% 91.4%;
+  --sidebar-ring: 24.6 95% 53.1%;
 
   font-family: system-ui, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  color-scheme: light dark;
 }
 
 .dark {
@@ -75,6 +96,17 @@
   --border: 217.2 32.6% 17.5%;
   --input: 217.2 32.6% 17.5%;
   --ring: 24.6 95% 53.1%;
+  /* Sidebar variables for dark mode */
+  --sidebar: 222.2 84% 4.9%;
+  --sidebar-foreground: 210 40% 98%;
+  --sidebar-primary: 24.6 95% 53.1%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-secondary: 217.2 32.6% 17.5%;
+  --sidebar-secondary-foreground: 210 40% 98%;
+  --sidebar-accent: 217.2 32.6% 17.5%;
+  --sidebar-accent-foreground: 210 40% 98%;
+  --sidebar-border: 217.2 32.6% 17.5%;
+  --sidebar-ring: 24.6 95% 53.1%;
 }
 
 * {
