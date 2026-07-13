@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { format, addDays } from "date-fns";
 import { toast } from "sonner";
 import { useLabour } from "@/hooks/useLabour";
@@ -199,6 +199,102 @@ function getWeekMonday(date: Date): Date {
   return monday;
 }
 
+// --------------------------------------------------------------------------
+// WorkerAttendanceCard — defined OUTSIDE Attendance() so it is a stable
+// component type. Defining it inside the parent function body creates a new
+// React.memo()-wrapped type on every render, which forces React to unmount
+// and remount every card instance on every attendanceState change.
+// --------------------------------------------------------------------------
+type WorkerType = {
+  id: string;
+  full_name: string;
+  default_work_category: string | null;
+  default_daily_rate: number;
+  is_active: boolean;
+};
+
+interface WorkerAttendanceCardProps {
+  worker: WorkerType;
+  dateStr: string;
+  cellData: AttendanceRecord;
+  canViewWages: boolean;
+  onUpdateCell: (labourId: string, date: string, updates: Partial<Omit<AttendanceRecord, "labourId" | "date">>) => void;
+}
+
+const WorkerAttendanceCard = React.memo(function WorkerAttendanceCard({
+  worker,
+  dateStr,
+  cellData,
+  canViewWages,
+  onUpdateCell,
+}: WorkerAttendanceCardProps) {
+  return (
+    <Card className="shadow-sm">
+      <CardContent className="p-4">
+        {/* Worker Header */}
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+              <User className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-slate-900">{worker.full_name}</h3>
+              <p className="text-sm text-slate-500 capitalize">{worker.default_work_category}</p>
+            </div>
+          </div>
+        </div>
+        
+        {/* Status Buttons */}
+        <div className="grid grid-cols-2 gap-2">
+          {ATTENDANCE_STATUS_OPTIONS.map((status) => (
+            <button
+              key={status.value}
+              onClick={() => onUpdateCell(worker.id, dateStr, { status: status.value })}
+              className={`py-3 px-3 rounded-lg text-sm font-medium transition-all ${
+                cellData.status === status.value
+                  ? `${status.color} text-white shadow-md`
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+              }`}
+            >
+              {status.label}
+            </button>
+          ))}
+        </div>
+        
+        {/* Work Category Selector */}
+        <div className="mt-3">
+          <label className="text-xs font-medium text-slate-500 mb-1 block">Work Category</label>
+          <select
+            className="w-full h-11 rounded-lg border border-input bg-white px-3 text-base"
+            value={cellData.workCategory || worker.default_work_category || ""}
+            onChange={(e) => onUpdateCell(worker.id, dateStr, { workCategory: e.target.value })}
+          >
+            {WORK_CATEGORIES.map((cat) => (
+              <option key={cat} value={cat} className="capitalize">{cat}</option>
+            ))}
+          </select>
+        </div>
+        
+        {/* Rate Input for supervisors with permission */}
+        {canViewWages && (
+          <div className="mt-3">
+            <label className="text-xs font-medium text-slate-500 mb-1 block">Rate (₹)</label>
+            <input
+              type="number"
+              className="w-full h-11 rounded-lg border border-input bg-white px-3 text-base"
+              value={cellData.rateApplied || ""}
+              onChange={(e) => onUpdateCell(worker.id, dateStr, { 
+                rateApplied: parseFloat(e.target.value) || "" 
+              })}
+              placeholder="Daily rate"
+            />
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+});
+
 export function Attendance() {
   // Week state (always Monday-based)
   const [currentWeek, setCurrentWeek] = useState<Date>(() => getWeekMonday(new Date()));
@@ -364,89 +460,14 @@ export function Attendance() {
   const isLoading = sitesLoading || labourLoading || attendanceLoading || assignmentsLoading;
   const activeWorkers = labour?.filter((l) => l.is_active) || [];
 
-  // Worker card component for mobile
-  const WorkerAttendanceCard = React.memo(({ 
-    worker, 
-    dateStr 
-  }: { 
-    worker: typeof activeWorkers[0]; 
-    dateStr: string;
-  }) => {
-    const cellData = getCellData(
-      worker.id,
-      dateStr,
-      worker.default_work_category || "",
-      worker.default_daily_rate || 0
-    );
-    
-    return (
-      <Card className="shadow-sm">
-        <CardContent className="p-4">
-          {/* Worker Header */}
-          <div className="flex items-start justify-between mb-3">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                <User className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-slate-900">{worker.full_name}</h3>
-                <p className="text-sm text-slate-500 capitalize">{worker.default_work_category}</p>
-              </div>
-            </div>
-          </div>
-          
-          {/* Status Buttons */}
-          <div className="grid grid-cols-2 gap-2">
-            {ATTENDANCE_STATUS_OPTIONS.map((status) => (
-              <button
-                key={status.value}
-                onClick={() => updateCell(worker.id, dateStr, { status: status.value })}
-                className={`py-3 px-3 rounded-lg text-sm font-medium transition-all ${
-                  cellData.status === status.value
-                    ? `${status.color} text-white shadow-md`
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                }`}
-              >
-                {status.label}
-              </button>
-            ))}
-          </div>
-          
-          {/* Work Category Selector */}
-          <div className="mt-3">
-            <label className="text-xs font-medium text-slate-500 mb-1 block">Work Category</label>
-            <select
-              className="w-full h-11 rounded-lg border border-input bg-white px-3 text-base"
-              value={cellData.workCategory || worker.default_work_category}
-              onChange={(e) => updateCell(worker.id, dateStr, { workCategory: e.target.value })}
-            >
-              {WORK_CATEGORIES.map((cat) => (
-                <option key={cat} value={cat} className="capitalize">{cat}</option>
-              ))}
-            </select>
-          </div>
-          
-          {/* Rate Input for supervisors with permission */}
-          {canViewWages && (
-            <div className="mt-3">
-              <label className="text-xs font-medium text-slate-500 mb-1 block">Rate (₹)</label>
-              <input
-                type="number"
-                className="w-full h-11 rounded-lg border border-input bg-white px-3 text-base"
-                value={cellData.rateApplied || ""}
-                onChange={(e) => updateCell(worker.id, dateStr, { 
-                  rateApplied: parseFloat(e.target.value) || "" 
-                })}
-                placeholder="Daily rate"
-              />
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    );
-  });
+  // Stable callback refs so WorkerAttendanceCard (now a top-level component)
+  // doesn't re-render just because the parent re-rendered.
+  const stableUpdateCell = useCallback(updateCell, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   
-  // Get worker count with attendance for selected date on mobile
+  // Get worker count with attendance for selected date on mobile.
+  // getCellData is an inline function (new ref every render) so it is intentionally
+  // omitted from the dependency array — attendanceState is the actual reactive value.
   const workersWithAttendance = useMemo(() => {
     if (!selectedSiteId) return 0;
     const dateStr = format(selectedDate, "yyyy-MM-dd");
@@ -455,7 +476,8 @@ export function Attendance() {
         worker.default_work_category || "", worker.default_daily_rate || 0);
       return record.status;
     }).length;
-  }, [activeWorkers, selectedDate, attendanceState, selectedSiteId, getCellData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeWorkers, selectedDate, attendanceState, selectedSiteId]);
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -607,13 +629,25 @@ export function Attendance() {
                         {format(selectedDate, "EEEE, MMM d")}
                       </p>
                     </div>
-                    {activeWorkers.map((worker) => (
-                      <WorkerAttendanceCard
-                        key={worker.id}
-                        worker={worker}
-                        dateStr={format(selectedDate, "yyyy-MM-dd")}
-                      />
-                    ))}
+                    {activeWorkers.map((worker) => {
+                      const dateStr = format(selectedDate, "yyyy-MM-dd");
+                      const cellData = getCellData(
+                        worker.id,
+                        dateStr,
+                        worker.default_work_category || "",
+                        worker.default_daily_rate || 0
+                      );
+                      return (
+                        <WorkerAttendanceCard
+                          key={worker.id}
+                          worker={worker}
+                          dateStr={dateStr}
+                          cellData={cellData}
+                          canViewWages={canViewWages}
+                          onUpdateCell={stableUpdateCell}
+                        />
+                      );
+                    })}
                   </div>
 
                   {/* Desktop: Table Layout */}

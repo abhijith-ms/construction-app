@@ -16,6 +16,8 @@ interface AuthState {
   profile: Profile | null;
   loading: boolean;
   isAuthenticated: boolean;
+  // Runtime-only: stores the unsubscribe fn for the auth listener so we never register it twice
+  _authListener: (() => void) | null;
 
   // Actions
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
@@ -31,8 +33,11 @@ export const useAuthStore = create<AuthState>()(
     (set, get) => ({
       user: null,
       profile: null,
-      loading: true,
+      // loading starts false so that persisted isAuthenticated:true does not show
+      // the spinner on every page reload before initialize() resolves.
+      loading: false,
       isAuthenticated: false,
+      _authListener: null,
 
       signIn: async (email: string, password: string) => {
         set({ loading: true });
@@ -94,6 +99,11 @@ export const useAuthStore = create<AuthState>()(
       setLoading: (loading: boolean) => set({ loading }),
 
       initialize: async () => {
+        // Guard: do not register a second listener if already initialized.
+        // React 19 Strict Mode double-invokes effects, which would otherwise
+        // stack two onAuthStateChange listeners and double-fire queryClient.clear().
+        if (get()._authListener) return;
+
         set({ loading: true });
         try {
           // Check for existing session
@@ -108,24 +118,28 @@ export const useAuthStore = create<AuthState>()(
             await get().fetchProfile(session.user.id);
           }
 
-          // Subscribe to auth state changes to clear cache on user change
-          supabase.auth.onAuthStateChange((event) => {
+          // Subscribe to auth state changes.
+          // Store the unsubscribe handle so we can clean up and avoid duplicates.
+          // IMPORTANT: SIGNED_IN is intentionally not handled here.
+          // Supabase fires SIGNED_IN on every silent JWT refresh (~hourly and on
+          // tab focus), so putting queryClient.clear() there was nuking all
+          // TanStack Query caches during normal navigation and causing the
+          // route re-render stall.
+          const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
             if (event === 'SIGNED_OUT') {
-              // Clear all cached queries when user signs out
-              queryClient.clear();
-            } else if (event === 'SIGNED_IN') {
-              // Clear cached data when a different user signs in
-              // This prevents showing previous user's data
               queryClient.clear();
             }
           });
+          set({ _authListener: subscription.unsubscribe.bind(subscription) });
         } finally {
           set({ loading: false });
         }
       },
 
       clearAuth: () => {
-        set({ user: null, profile: null, isAuthenticated: false, loading: false });
+        const unsub = get()._authListener;
+        if (unsub) unsub();
+        set({ user: null, profile: null, isAuthenticated: false, loading: false, _authListener: null });
       },
     }),
     {
@@ -133,6 +147,7 @@ export const useAuthStore = create<AuthState>()(
       partialize: (state) => ({ 
         user: state.user,
         isAuthenticated: state.isAuthenticated,
+        // loading and _authListener are intentionally excluded — they are runtime-only
       }),
     }
   )

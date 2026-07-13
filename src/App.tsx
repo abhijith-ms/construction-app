@@ -19,8 +19,12 @@ import Stock from "@/routes/Stock";
 import Reports from "@/routes/Reports";
 
 function App() {
+  // useTransitions={false}: RRD v7 wraps navigation in React.startTransition() by default,
+  // making navigation low-priority/interruptible. Under heavy render work (e.g. Attendance page
+  // state changes) the navigation transition is repeatedly deferred and never commits, causing
+  // "URL changes but content doesn't update." Synchronous navigation restores v5/v6 behaviour.
   return (
-    <BrowserRouter>
+    <BrowserRouter useTransitions={false}>
       <Routes>
         {/* Public Routes */}
         <Route path="/login" element={<Login />} />
