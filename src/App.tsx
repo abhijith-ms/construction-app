@@ -4,6 +4,7 @@ import { ProtectedLayout } from "@/routes/ProtectedLayout";
 import { Dashboard } from "@/routes/Dashboard";
 import { Sites } from "@/routes/Sites";
 import { SiteDashboard } from "@/routes/SiteDashboard";
+import SiteDetail from "@/routes/SiteDetail";
 import { Labour } from "@/routes/Labour";
 import { Attendance } from "@/routes/Attendance";
 import { Staff } from "@/routes/Staff";
@@ -28,21 +29,24 @@ function App() {
         <Route element={<ProtectedLayout />}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/sites" element={<Sites />} />
+          <Route path="/sites/:siteId" element={<SiteDetail />} />
           <Route path="/sites/:id/dashboard" element={<SiteDashboard />} />
           <Route path="/labour" element={<Labour />} />
+          {/* Attendance, Expenses, Receipts, Payroll now live inside SiteDetail tabs */}
+          {/* Keep legacy routes for direct access if needed */}
           <Route path="/attendance" element={<Attendance />} />
-          <Route path="/staff" element={<Staff />} />
-          <Route path="/staff-attendance" element={<StaffAttendance />} />
           <Route path="/expenses" element={<Expenses />} />
           <Route path="/payroll" element={<Payroll />} />
           <Route path="/pay-receipts" element={<PayReceipts />} />
+          <Route path="/staff" element={<Staff />} />
+          <Route path="/staff-attendance" element={<StaffAttendance />} />
           <Route path="/suppliers" element={<Suppliers />} />
           <Route path="/suppliers/:id" element={<SupplierDetail />} />
           <Route path="/reports" element={<Reports />} />
           <Route path="/stock" element={<Stock />} />
           <Route path="/users" element={<Users />} />
-          {/* Default redirect for authenticated routes */}
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          {/* Default redirect for authenticated routes - now goes to Sites */}
+          <Route path="/" element={<Navigate to="/sites" replace />} />
         </Route>
 
         {/* Catch all redirect */}

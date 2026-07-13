@@ -287,7 +287,7 @@ export function Sites() {
                           variant="outline"
                           size="sm"
                           className="w-full mt-2"
-                          onClick={() => navigate(`/sites/${site.id}/dashboard`)}
+                          onClick={() => navigate(`/sites/${site.id}`)}
                         >
                           <LayoutDashboard className="h-4 w-4 mr-2" />
                           View Dashboard
@@ -353,7 +353,7 @@ export function Sites() {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => navigate(`/sites/${site.id}/dashboard`)}
+                              onClick={() => navigate(`/sites/${site.id}`)}
                             >
                               <LayoutDashboard className="h-4 w-4 mr-2" />
                               Dashboard

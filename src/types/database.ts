@@ -725,6 +725,68 @@ export type Database = {
           },
         ]
       }
+      site_labour_assignments: {
+        Row: {
+          assigned_at: string
+          assigned_by: string
+          id: string
+          is_active: boolean
+          labour_id: string
+          last_edited_at: string
+          last_edited_by: string
+          site_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by: string
+          id?: string
+          is_active?: boolean
+          labour_id: string
+          last_edited_at?: string
+          last_edited_by: string
+          site_id: string
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string
+          id?: string
+          is_active?: boolean
+          labour_id?: string
+          last_edited_at?: string
+          last_edited_by?: string
+          site_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "site_labour_assignments_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_labour_assignments_labour_id_fkey"
+            columns: ["labour_id"]
+            isOneToOne: false
+            referencedRelation: "labour"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_labour_assignments_last_edited_by_fkey"
+            columns: ["last_edited_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_labour_assignments_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       site_settings: {
         Row: {
           half_day_multiplier: number
@@ -1338,6 +1400,10 @@ export type Database = {
           p_site_id: string
           p_status: string
         }
+        Returns: number
+      }
+      get_labour_active_site_count: {
+        Args: { p_labour_id: string }
         Returns: number
       }
       get_my_role: { Args: never; Returns: string }

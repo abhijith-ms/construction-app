@@ -1,12 +1,15 @@
 import { NavLink, useLocation } from "react-router-dom";
 import { useAuthStore } from "@/stores/authStore";
 import {
-  LayoutDashboard,
-  CalendarCheck,
+  Building2,
   Users,
-  MoreHorizontal,
+  LayoutDashboard,
   Briefcase,
-  IndianRupee,
+  MoreHorizontal,
+  Truck,
+  Package,
+  BarChart3,
+  UserCog,
 } from "lucide-react";
 import {
   Sheet,
@@ -24,17 +27,14 @@ interface NavItem {
   showFor: ("admin" | "office_manager" | "supervisor")[];
 }
 
+// Site-first mobile navigation
+// Sites is primary entry point, Labour Pool global
+// Site-specific features (attendance, expenses, receipts, payroll) now live in SiteDetail tabs
 const navItems: NavItem[] = [
   {
-    to: "/dashboard",
-    label: "Dashboard",
-    icon: <LayoutDashboard className="h-5 w-5" />,
-    showFor: ["admin", "office_manager", "supervisor"],
-  },
-  {
-    to: "/attendance",
-    label: "Attendance",
-    icon: <CalendarCheck className="h-5 w-5" />,
+    to: "/sites",
+    label: "Sites",
+    icon: <Building2 className="h-5 w-5" />,
     showFor: ["admin", "office_manager", "supervisor"],
   },
   {
@@ -44,67 +44,43 @@ const navItems: NavItem[] = [
     showFor: ["admin", "office_manager", "supervisor"],
   },
   {
-    to: "/staff",
-    label: "Staff",
-    icon: <Briefcase className="h-5 w-5" />,
+    to: "/dashboard",
+    label: "Dashboard",
+    icon: <LayoutDashboard className="h-5 w-5" />,
     showFor: ["admin", "office_manager", "supervisor"],
   },
   {
-    to: "/payroll",
-    label: "Payroll",
-    icon: <IndianRupee className="h-5 w-5" />,
+    to: "/staff",
+    label: "Staff",
+    icon: <Briefcase className="h-5 w-5" />,
     showFor: ["admin", "office_manager", "supervisor"],
   },
 ];
 
 const moreItems: NavItem[] = [
   {
-    to: "/sites",
-    label: "Sites",
-    icon: <LayoutDashboard className="h-5 w-5" />,
-    showFor: ["admin", "office_manager", "supervisor"],
-  },
-  {
-    to: "/staff-attendance",
-    label: "Staff Attendance",
-    icon: <CalendarCheck className="h-5 w-5" />,
-    showFor: ["admin", "office_manager", "supervisor"],
-  },
-  {
-    to: "/expenses",
-    label: "Expenses",
-    icon: <IndianRupee className="h-5 w-5" />,
+    to: "/stock",
+    label: "Stock",
+    icon: <Package className="h-5 w-5" />,
     showFor: ["admin", "office_manager", "supervisor"],
   },
   {
     to: "/suppliers",
     label: "Suppliers",
-    icon: <Users className="h-5 w-5" />,
+    icon: <Truck className="h-5 w-5" />,
     showFor: ["admin", "office_manager"],
-  },
-  {
-    to: "/stock",
-    label: "Stock",
-    icon: <LayoutDashboard className="h-5 w-5" />,
-    showFor: ["admin", "office_manager", "supervisor"],
   },
   {
     to: "/reports",
     label: "Reports",
-    icon: <LayoutDashboard className="h-5 w-5" />,
-    showFor: ["admin", "office_manager"],
-  },
-  {
-    to: "/pay-receipts",
-    label: "Pay Receipts",
-    icon: <IndianRupee className="h-5 w-5" />,
+    icon: <BarChart3 className="h-5 w-5" />,
     showFor: ["admin", "office_manager"],
   },
   {
     to: "/users",
     label: "Users",
-    icon: <Users className="h-5 w-5" />,
-    showFor: ["admin", "office_manager"],
+    icon: <UserCog className="h-5 w-5" />,
+    showFor: ["admin"],
   },
 ];
 
@@ -147,12 +123,12 @@ export function MobileBottomNav() {
 
   // Take first 4 items for the main nav (leaving room for More)
   const mainNavItems = visibleNavItems.slice(0, 4);
-  const needsMore = visibleNavItems.length > 4 || visibleMoreItems.length > 0;
+  const needsMore = visibleMoreItems.length > 0;
 
-  // Determine if we're in a "more" route
+  // Determine if we're in a "more" route - check if current path matches any more item
   const isMoreActive = visibleMoreItems.some(
     (item) => location.pathname === item.to
-  ) || visibleNavItems.slice(4).some((item) => location.pathname === item.to);
+  );
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200 shadow-lg md:hidden pb-safe">
@@ -185,7 +161,7 @@ export function MobileBottomNav() {
                 <SheetTitle className="text-center">More Options</SheetTitle>
               </SheetHeader>
               <div className="grid grid-cols-3 gap-4 py-6">
-                {[...visibleNavItems.slice(4), ...visibleMoreItems].map((item) => (
+                {visibleMoreItems.map((item) => (
                   <NavLink
                     key={item.to}
                     to={item.to}

@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { useLabour } from "@/hooks/useLabour";
+import { useLabourPool, type LabourWithSiteAssignments } from "@/hooks/useLabourPool";
 import { useCreateLabour } from "@/hooks/useCreateLabour";
 import { useUpdateLabour, useDeactivateLabour } from "@/hooks/useUpdateLabour";
 import { useWagePermissions } from "@/hooks/useWagePermissions";
@@ -132,7 +132,7 @@ function StatusBadge({ isActive }: { isActive: boolean }) {
 
 export function Labour() {
   const { profile } = useAuthStore();
-  const { data: labour, isLoading, error } = useLabour();
+  const { data: labour, isLoading, error } = useLabourPool();
   const { mutate: createLabour, isPending: isCreating } = useCreateLabour();
   const { mutate: updateLabour, isPending: isUpdating } = useUpdateLabour();
   const { mutate: deactivateLabour } = useDeactivateLabour();
@@ -616,6 +616,22 @@ export function Labour() {
                                 {worker.phone}
                               </p>
                             )}
+                            {/* Active Sites Badge */}
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {worker.activeSiteCount === 0 ? (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-slate-100 text-slate-500">
+                                  Unassigned
+                                </span>
+                              ) : worker.activeSiteCount > 1 ? (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-orange-100 text-orange-800">
+                                  Multi-site
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-blue-50 text-blue-700">
+                                  {worker.activeSites[0]?.name}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
                         {canManage && (
@@ -636,7 +652,8 @@ export function Labour() {
                                 Edit
                               </DropdownMenuItem>
                               <DropdownMenuItem
-                                onClick={() => {
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   setAssignmentWorker(worker);
                                   setIsAssignmentOpen(true);
                                 }}
@@ -702,6 +719,9 @@ export function Labour() {
                       <th className="text-left py-3 px-4 font-semibold text-slate-700">
                         Status
                       </th>
+                      <th className="text-left py-3 px-4 font-semibold text-slate-700">
+                        Active Sites
+                      </th>
                       {canManage && (
                         <th className="text-right py-3 px-4 font-semibold text-slate-700">
                           Actions
@@ -728,7 +748,21 @@ export function Labour() {
                           </td>
                         )}
                         <td className="py-3 px-4">
-                          <StatusBadge isActive={worker.is_active} />
+                          <div className="flex flex-wrap gap-1">
+                            {worker.activeSiteCount === 0 ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-slate-100 text-slate-500">
+                                Unassigned
+                              </span>
+                            ) : worker.activeSiteCount > 1 ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-orange-100 text-orange-800">
+                                Multi-site
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-blue-50 text-blue-700">
+                                {worker.activeSites[0]?.name}
+                              </span>
+                            )}
+                          </div>
                         </td>
                         {canManage && (
                           <td className="py-3 px-4 text-right">
@@ -879,6 +913,7 @@ function AssignmentSheet({
   };
 
   const handleEndAssignment = (assignment: LabourSiteAssignment) => {
+    if (!profile?.id) return;
     const today = new Date().toISOString().split("T")[0];
     endAssignment(
       {
@@ -886,6 +921,7 @@ function AssignmentSheet({
         labourId: assignment.labour_id,
         siteId: assignment.site_id,
         endDate: today,
+        actorId: profile.id,
       },
       {
         onSuccess: () => {
@@ -904,7 +940,7 @@ function AssignmentSheet({
   const isActive = (assignment: LabourSiteAssignment) => {
     if (!assignment.end_date) return true;
     const today = new Date().toISOString().split("T")[0];
-    return assignment.end_date >= today;
+    return assignment.end_date > today;
   };
 
   const renderContent = (isDesktop: boolean) => (

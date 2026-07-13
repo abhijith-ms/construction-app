@@ -5,8 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Toaster } from "sonner";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
 import { 
-  Loader2, LogOut, Building2, LayoutDashboard, ClipboardList, Users, 
-  CalendarCheck, Briefcase, UserCheck, IndianRupee, Receipt, UserCog, 
+  Loader2, LogOut, Building2, LayoutDashboard, Users, 
+  Briefcase, UserCog, 
   Truck, Package, BarChart3 
 } from "lucide-react";
 
@@ -53,20 +53,17 @@ export function ProtectedLayout() {
 
   const isAdmin = profile?.role === "admin" || profile?.role === "office_manager";
 
+  // Site-first navigation: Sites is primary, Labour Pool global, 
+  // site-specific modules (attendance, expenses, etc.) moved to SiteDetail tabs
   const navItems: NavItem[] = [
+    { to: "/sites", label: "Sites", icon: <Building2 className="h-5 w-5" /> },
+    { to: "/labour", label: "Labour Pool", icon: <Users className="h-5 w-5" /> },
     { to: "/dashboard", label: "Dashboard", icon: <LayoutDashboard className="h-5 w-5" /> },
-    { to: "/sites", label: "Sites", icon: <ClipboardList className="h-5 w-5" /> },
-    { to: "/labour", label: "Labour", icon: <Users className="h-5 w-5" /> },
-    { to: "/attendance", label: "Attendance", icon: <CalendarCheck className="h-5 w-5" /> },
     { to: "/staff", label: "Staff", icon: <Briefcase className="h-5 w-5" /> },
-    { to: "/staff-attendance", label: "Staff Att.", icon: <UserCheck className="h-5 w-5" /> },
-    { to: "/expenses", label: "Expenses", icon: <Receipt className="h-5 w-5" /> },
-    { to: "/payroll", label: "Payroll", icon: <IndianRupee className="h-5 w-5" /> },
     { to: "/stock", label: "Stock", icon: <Package className="h-5 w-5" /> },
     ...(isAdmin ? [
       { to: "/suppliers", label: "Suppliers", icon: <Truck className="h-5 w-5" />, adminOnly: true },
       { to: "/reports", label: "Reports", icon: <BarChart3 className="h-5 w-5" />, adminOnly: true },
-      { to: "/pay-receipts", label: "Receipts", icon: <Receipt className="h-5 w-5" />, adminOnly: true },
       { to: "/users", label: "Users", icon: <UserCog className="h-5 w-5" />, adminOnly: true },
     ] : []),
   ];
