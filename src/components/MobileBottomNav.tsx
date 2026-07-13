@@ -116,6 +116,7 @@ function NavButton({ to, label, icon, isActive }: NavButtonProps) {
   return (
     <NavLink
       to={to}
+      end
       className={`flex flex-col items-center justify-center gap-1 py-2 px-3 min-w-[64px] min-h-[56px] rounded-lg transition-colors ${
         isActive ? "text-primary" : "text-slate-500 hover:text-slate-700"
       }`}
@@ -186,6 +187,7 @@ export function MobileBottomNav() {
                   <NavLink
                     key={item.to}
                     to={item.to}
+                    end
                     onClick={() => setMoreOpen(false)}
                     className={`flex flex-col items-center justify-center gap-2 p-4 rounded-xl transition-colors min-h-[80px] ${
                       location.pathname === item.to

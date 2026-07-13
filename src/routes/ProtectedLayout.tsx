@@ -124,6 +124,7 @@ export function ProtectedLayout() {
             <NavLink
               key={item.to}
               to={item.to}
+              end
               className={sidebarLinkClass}
             >
               {item.icon}
