@@ -10,6 +10,9 @@ import {
   Package,
   BarChart3,
   UserCog,
+  Calendar,
+  Wallet,
+  Receipt,
 } from "lucide-react";
 import {
   Sheet,
@@ -27,14 +30,26 @@ interface NavItem {
   showFor: ("admin" | "office_manager" | "supervisor")[];
 }
 
-// Site-first mobile navigation
-// Sites is primary entry point, Labour Pool global
-// Site-specific features (attendance, expenses, receipts, payroll) now live in SiteDetail tabs
+// Mobile bottom navigation
+// Main nav shows 4 primary items + More menu
+// Order: Dashboard, Sites, Attendance, Labour Pool, More (rest)
 const navItems: NavItem[] = [
+  {
+    to: "/dashboard",
+    label: "Dashboard",
+    icon: <LayoutDashboard className="h-5 w-5" />,
+    showFor: ["admin", "office_manager", "supervisor"],
+  },
   {
     to: "/sites",
     label: "Sites",
     icon: <Building2 className="h-5 w-5" />,
+    showFor: ["admin", "office_manager", "supervisor"],
+  },
+  {
+    to: "/attendance",
+    label: "Attendance",
+    icon: <Calendar className="h-5 w-5" />,
     showFor: ["admin", "office_manager", "supervisor"],
   },
   {
@@ -43,26 +58,32 @@ const navItems: NavItem[] = [
     icon: <Users className="h-5 w-5" />,
     showFor: ["admin", "office_manager", "supervisor"],
   },
-  {
-    to: "/dashboard",
-    label: "Dashboard",
-    icon: <LayoutDashboard className="h-5 w-5" />,
-    showFor: ["admin", "office_manager", "supervisor"],
-  },
+];
+
+const moreItems: NavItem[] = [
   {
     to: "/staff",
     label: "Staff",
     icon: <Briefcase className="h-5 w-5" />,
     showFor: ["admin", "office_manager", "supervisor"],
   },
-];
-
-const moreItems: NavItem[] = [
+  {
+    to: "/payroll",
+    label: "Payroll",
+    icon: <Wallet className="h-5 w-5" />,
+    showFor: ["admin", "office_manager"],
+  },
+  {
+    to: "/expenses",
+    label: "Expenses",
+    icon: <Receipt className="h-5 w-5" />,
+    showFor: ["admin", "office_manager"],
+  },
   {
     to: "/stock",
     label: "Stock",
     icon: <Package className="h-5 w-5" />,
-    showFor: ["admin", "office_manager", "supervisor"],
+    showFor: ["admin", "office_manager"],
   },
   {
     to: "/suppliers",

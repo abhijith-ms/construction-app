@@ -6,7 +6,7 @@ import { Toaster } from "sonner";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
 import { 
   Loader2, LogOut, Building2, LayoutDashboard, Users, 
-  Briefcase, UserCog, 
+  Briefcase, UserCog, Calendar, Wallet, Receipt,
   Truck, Package, BarChart3 
 } from "lucide-react";
 
@@ -52,18 +52,34 @@ export function ProtectedLayout() {
   }
 
   const isAdmin = profile?.role === "admin" || profile?.role === "office_manager";
+  const isSuperAdmin = profile?.role === "admin";
 
-  // Site-first navigation: Sites is primary, Labour Pool global, 
-  // site-specific modules (attendance, expenses, etc.) moved to SiteDetail tabs
+  // Sidebar navigation order:
+  // 1. Dashboard (all roles)
+  // 2. Sites (all roles)
+  // 3. Labour Pool (all roles)
+  // 4. Attendance (all roles) - route to /sites for now
+  // 5. Staff (all roles)
+  // 6. Payroll (Admin/Office only)
+  // 7. Expenses (Admin/Office only)
+  // 8. Stock (Admin/Office only)
+  // 9. Suppliers (Admin/Office only)
+  // 10. Reports (Admin/Office only)
+  // 11. Users (Admin only)
   const navItems: NavItem[] = [
+    { to: "/dashboard", label: "Dashboard", icon: <LayoutDashboard className="h-5 w-5" /> },
     { to: "/sites", label: "Sites", icon: <Building2 className="h-5 w-5" /> },
     { to: "/labour", label: "Labour Pool", icon: <Users className="h-5 w-5" /> },
-    { to: "/dashboard", label: "Dashboard", icon: <LayoutDashboard className="h-5 w-5" /> },
+    { to: "/attendance", label: "Attendance", icon: <Calendar className="h-5 w-5" /> },
     { to: "/staff", label: "Staff", icon: <Briefcase className="h-5 w-5" /> },
-    { to: "/stock", label: "Stock", icon: <Package className="h-5 w-5" /> },
     ...(isAdmin ? [
+      { to: "/payroll", label: "Payroll", icon: <Wallet className="h-5 w-5" />, adminOnly: true },
+      { to: "/expenses", label: "Expenses", icon: <Receipt className="h-5 w-5" />, adminOnly: true },
+      { to: "/stock", label: "Stock", icon: <Package className="h-5 w-5" />, adminOnly: true },
       { to: "/suppliers", label: "Suppliers", icon: <Truck className="h-5 w-5" />, adminOnly: true },
       { to: "/reports", label: "Reports", icon: <BarChart3 className="h-5 w-5" />, adminOnly: true },
+    ] : []),
+    ...(isSuperAdmin ? [
       { to: "/users", label: "Users", icon: <UserCog className="h-5 w-5" />, adminOnly: true },
     ] : []),
   ];

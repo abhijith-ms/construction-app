@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { useLabourPool, type LabourWithSiteAssignments } from "@/hooks/useLabourPool";
+import { useLabourPool } from "@/hooks/useLabourPool";
 import { useCreateLabour } from "@/hooks/useCreateLabour";
 import { useUpdateLabour, useDeactivateLabour } from "@/hooks/useUpdateLabour";
 import { useWagePermissions } from "@/hooks/useWagePermissions";
@@ -113,21 +113,6 @@ function formatCurrency(amount: number | null) {
     style: "currency",
     currency: "INR",
   }).format(amount);
-}
-
-// Status badge component
-function StatusBadge({ isActive }: { isActive: boolean }) {
-  return (
-    <span
-      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${
-        isActive
-          ? "bg-green-100 text-green-700"
-          : "bg-slate-100 text-slate-500"
-      }`}
-    >
-      {isActive ? "Active" : "Inactive"}
-    </span>
-  );
 }
 
 export function Labour() {
