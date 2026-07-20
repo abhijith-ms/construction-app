@@ -4,6 +4,25 @@ This file tracks design debt and deferred decisions that were made deliberately 
 
 ---
 
+## RESOLVED — P&L Reports screen showing ₹0.00 for everything
+
+**Where:** `src/routes/Reports.tsx`, `src/hooks/usePnlReport.ts` (RPC wrapper, unchanged), `get_site_pnl()` Postgres function (unchanged — proven correct, not the bug).
+
+**What:** `Reports.tsx` defaulted `periodMode` to `"monthly"`, computing `fromDate`/`toDate` from `new Date()` — i.e. the current calendar month. Greenfield Residency's real data (₹5,00,000 income via `pay_receipts` dated 2026-06-01; ₹97,000 total cost via `site_expenses` dated 2026-06-13/14 and `bills` dated 2026-06-12) all falls in June, not the current month (July when this was diagnosed). `get_site_pnl()` filters every sub-query with `date BETWEEN p_from AND p_to`, so a July-only range legitimately produces an all-zero result — the function was never wrong, it was answering the question it was actually asked ("what happened in July") correctly.
+
+**Diagnosis process (documented since this is financial data):**
+1. `get_site_pnl('...', '2026-07-01', '2026-07-31')` → all zeros — reproduces the bug at the SQL level.
+2. `get_site_pnl('...', '2026-06-01', '2026-06-30')` → `total_income: 500000, total_cost: 97000, net_profit: 403000` — exact match to the real figures, proving the function itself is correct.
+3. Live network capture of the app's actual authenticated RPC call (not the CLI's superuser bypass) for the July default → `HTTP 200` with a correctly-shaped, real (non-error) array of zeros — ruling out RLS/grants (`EXECUTE` is granted to `PUBLIC`, which every role inherits) and ruling out a frontend response-shape bug.
+
+**Fix:** `Reports.tsx` now defaults `periodMode` to a new `"all"` option ("All Time" tab), using a fixed wide range (`2000-01-01` to `2100-12-31`) since `get_site_pnl`'s `BETWEEN p_from AND p_to` requires concrete bounds — passing `NULL` does not mean "unfiltered," it makes every `BETWEEN` comparison evaluate to `NULL` (false), which would have produced the exact same misleading all-zero result. Additionally, `PnLCard` now detects a genuinely empty row (`total_income === 0` and all four cost components `=== 0`) and renders "No data for this period" instead of the full ₹0.00 breakdown grid, so a user who deliberately picks an empty period sees an explicit empty state rather than something that looks broken. Date-range prev/next navigation buttons are hidden in "All Time" mode (nothing to page through) and reappear for Weekly/Monthly/Yearly.
+
+**Verification:** Playwright, live against local seed data — default load (no interaction) shows Greenfield Residency: Income ₹5,00,000.00, Total Cost ₹97,000.00, Net Profit ₹4,03,000.00 — exact match to the real figures, confirming the fix without needing the user to know to navigate to June first. Switching to Monthly (defaults to July, empty) shows "No data for this period" per site instead of ₹0.00. Clicking Previous from July correctly reaches June and shows the same real figures again, confirming period navigation still works. `tsc -b` clean.
+
+**Status:** RESOLVED on 2026-07-21.
+
+---
+
 ## RESOLVED — Supervisors routed to global `/attendance` instead of their site's Attendance tab
 
 **Where:** `src/hooks/useAttendanceNavigation.ts` (new, shared decision logic), `src/components/AttendanceSitePickerDialog.tsx` (new, shared picker UI), consumed by `src/routes/ProtectedLayout.tsx` (desktop sidebar), `src/components/MobileBottomNav.tsx` (mobile bottom nav), `src/routes/Dashboard.tsx` ("Mark Attendance" quick action). Tab targeting via `src/routes/SiteDetail.tsx`'s new `?tab=` read on mount.

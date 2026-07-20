@@ -9,7 +9,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2 } from "lucide-react";
 
-type PeriodMode = "weekly" | "monthly" | "yearly";
+type PeriodMode = "all" | "weekly" | "monthly" | "yearly";
+
+// get_site_pnl(p_site_id, p_from, p_to) filters with `date BETWEEN p_from AND p_to`,
+// which requires concrete bounds (BETWEEN NULL AND x is never true, not "unbounded").
+// This fixed wide range stands in for "no date filter" / all-time.
+const ALL_TIME_RANGE = { from: "2000-01-01", to: "2100-12-31" };
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", minimumFractionDigits: 2 }).format(amount);
@@ -45,6 +50,31 @@ function getMonthName(month: number): string {
 
 function PnLCard({ data }: { data: PnLReportRow }) {
   const isProfit = data.net_profit >= 0;
+  // get_site_pnl always returns one row per site regardless of whether any
+  // transactions fall in the date range (COALESCE(...,0)), so a genuinely
+  // empty period looks identical to a real ₹0 P&L unless checked explicitly.
+  const hasNoData =
+    data.total_income === 0 &&
+    data.labour_cost === 0 &&
+    data.site_expense_cost === 0 &&
+    data.supplier_bill_cost === 0 &&
+    data.material_usage_cost === 0;
+
+  if (hasNoData) {
+    return (
+      <Card className="overflow-hidden">
+        <CardHeader className="pb-3 bg-muted/30">
+          <CardTitle className="text-base md:text-lg">{data.site_name}</CardTitle>
+        </CardHeader>
+        <CardContent className="p-4 md:p-6">
+          <p className="text-sm text-muted-foreground text-center py-2">
+            No data for this period
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="overflow-hidden">
       <CardHeader className="pb-3 bg-muted/30">
@@ -180,7 +210,7 @@ function SummaryCard({ summary }: { summary: { totalIncome: number; totalCost: n
 }
 
 export default function Reports() {
-  const [periodMode, setPeriodMode] = useState<PeriodMode>("monthly");
+  const [periodMode, setPeriodMode] = useState<PeriodMode>("all");
   const [selectedSiteId, setSelectedSiteId] = useState<string>("all");
   const [currentWeek, setCurrentWeek] = useState(new Date());
   const [selectedMonth, setSelectedMonth] = useState(getMonth(new Date()));
@@ -192,6 +222,8 @@ export default function Reports() {
   const reportParams = useMemo(() => {
     const siteId = selectedSiteId === "all" ? null : selectedSiteId;
     switch (periodMode) {
+      case "all":
+        return { siteId, fromDate: ALL_TIME_RANGE.from, toDate: ALL_TIME_RANGE.to };
       case "weekly":
         return { siteId, fromDate: getWeekRange(currentWeek).from, toDate: getWeekRange(currentWeek).to };
       case "monthly":
@@ -205,6 +237,8 @@ export default function Reports() {
 
   const navigatePrevious = () => {
     switch (periodMode) {
+      case "all":
+        break;
       case "weekly":
         setCurrentWeek((prev) => addDays(prev, -7));
         break;
@@ -224,6 +258,8 @@ export default function Reports() {
 
   const navigateNext = () => {
     switch (periodMode) {
+      case "all":
+        break;
       case "weekly":
         setCurrentWeek((prev) => addDays(prev, 7));
         break;
@@ -243,6 +279,8 @@ export default function Reports() {
 
   const getCurrentPeriodLabel = (): string => {
     switch (periodMode) {
+      case "all":
+        return "All Time";
       case "weekly":
         return formatWeekLabel(getWeekRange(currentWeek).from);
       case "monthly":
@@ -283,6 +321,7 @@ export default function Reports() {
               <label className="text-sm font-medium mb-2 block">Period</label>
               <Tabs value={periodMode} onValueChange={(v) => setPeriodMode(v as PeriodMode)}>
                 <TabsList>
+                  <TabsTrigger value="all">All Time</TabsTrigger>
                   <TabsTrigger value="weekly">Weekly</TabsTrigger>
                   <TabsTrigger value="monthly">Monthly</TabsTrigger>
                   <TabsTrigger value="yearly">Yearly</TabsTrigger>
@@ -292,15 +331,19 @@ export default function Reports() {
 
             <div className="flex items-center gap-2 flex-shrink-0">
               <label className="text-sm font-medium mr-2">Date Range</label>
-              <Button variant="outline" size="icon" onClick={navigatePrevious}>
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
+              {periodMode !== "all" && (
+                <Button variant="outline" size="icon" onClick={navigatePrevious}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+              )}
               <div className="min-w-[180px] text-center font-medium px-4 py-2 bg-muted rounded-md">
                 {getCurrentPeriodLabel()}
               </div>
-              <Button variant="outline" size="icon" onClick={navigateNext}>
-                <ChevronRight className="h-4 w-4" />
-              </Button>
+              {periodMode !== "all" && (
+                <Button variant="outline" size="icon" onClick={navigateNext}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              )}
             </div>
 
             <div className="flex-1 min-w-[200px]">
