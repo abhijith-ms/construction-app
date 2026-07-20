@@ -325,7 +325,8 @@ export default function SiteDetail() {
 
   const handleMarkAttendance = async (
     labourId: string,
-    status: "present" | "absent" | "half_day" | "leave"
+    status: "present" | "absent" | "half_day" | "leave",
+    overtimeHours?: number
   ) => {
     try {
       const workerRate = workers?.find((w: any) => w.labourId === labourId)?.defaultRate || 0;
@@ -340,6 +341,7 @@ export default function SiteDetail() {
           work_category: "mason",
           last_edited_by: profile?.id || "",
           rate_applied: status === "absent" || status === "leave" ? null : workerRate,
+          overtime_hours: overtimeHours || null,
         }],
         canViewWages: canViewWages,
         workerDefaultRates: workerRates,
@@ -622,6 +624,9 @@ export default function SiteDetail() {
             <div className="space-y-2">
               {workers?.map((worker: any) => {
                 const record = attendance?.find((a: any) => a.labourId === worker.labourId);
+                // Only show OT field if worker has overtime_rate set
+                // OT hours are operational data (supervisor marks time), not financial data
+                const showOtField = worker.overtimeRate !== null && worker.overtimeRate !== undefined;
                 return (
                   <Card key={worker.labourId} className={record ? "border-green-200 bg-green-50/50" : ""}>
                     <CardContent className="p-4">
@@ -646,7 +651,7 @@ export default function SiteDetail() {
                           size="sm"
                           variant={record?.status === "present" ? "default" : "outline"}
                           className={record?.status === "present" ? "bg-green-600" : ""}
-                          onClick={() => handleMarkAttendance(worker.labourId, "present")}
+                          onClick={() => handleMarkAttendance(worker.labourId, "present", showOtField ? (record?.overtimeHours || undefined) : undefined)}
                         >
                           Present
                         </Button>
@@ -662,11 +667,33 @@ export default function SiteDetail() {
                           size="sm"
                           variant={record?.status === "half_day" ? "default" : "outline"}
                           className={record?.status === "half_day" ? "bg-yellow-600" : ""}
-                          onClick={() => handleMarkAttendance(worker.labourId, "half_day")}
+                          onClick={() => handleMarkAttendance(worker.labourId, "half_day", showOtField ? (record?.overtimeHours || undefined) : undefined)}
                         >
                           Half Day
                         </Button>
                       </div>
+                      {/* OT Hours field - shown if worker has overtime_rate set */}
+                      {showOtField && (
+                        <div className="mt-3 flex items-center gap-2">
+                          <Label className="text-xs text-muted-foreground whitespace-nowrap">OT Hours</Label>
+                          <Input
+                            type="number"
+                            step="0.5"
+                            min="0"
+                            max="24"
+                            defaultValue={record?.overtimeHours || ""}
+                            placeholder="0"
+                            className="h-8 w-24 text-sm"
+                            onChange={(e) => {
+                              const value = e.target.value ? parseFloat(e.target.value) : undefined;
+                              // Only save if attendance is already marked for today
+                              if (record) {
+                                handleMarkAttendance(worker.labourId, record.status, value);
+                              }
+                            }}
+                          />
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 );
@@ -674,7 +701,7 @@ export default function SiteDetail() {
             </div>
 
             <p className="text-xs text-muted-foreground text-center">
-              Attendance saves automatically when you tap Present, Absent, or Half Day.
+              Attendance saves automatically when you tap Present, Absent, or Half Day. OT hours save on change.
             </p>
           </TabsContent>
 

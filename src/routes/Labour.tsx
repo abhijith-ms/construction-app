@@ -75,6 +75,15 @@ const labourSchema = z.object({
   phone: z.string().optional(),
   default_work_category: z.string().min(1, "Work category is required"),
   default_daily_rate: z.string().min(1, "Daily rate is required"),
+  // Optional rate fields for half-day and overtime
+  half_day_rate: z.string().optional().nullable().refine((val) => {
+    if (!val) return true;
+    return parseFloat(val) > 0;
+  }, "Half day rate must be greater than 0"),
+  overtime_rate: z.string().optional().nullable().refine((val) => {
+    if (!val) return true;
+    return parseFloat(val) > 0;
+  }, "Overtime rate must be greater than 0"),
   // Optional site assignment fields
   assign_to_site: z.boolean().optional(),
   site_id: z.string().optional(),
@@ -162,6 +171,8 @@ export function Labour() {
 
   const onSubmit = (data: LabourFormData) => {
     const rateValue = parseFloat(data.default_daily_rate);
+    const halfDayRateValue = data.half_day_rate ? parseFloat(data.half_day_rate) : null;
+    const overtimeRateValue = data.overtime_rate ? parseFloat(data.overtime_rate) : null;
     
     if (editingLabour) {
       updateLabour(
@@ -172,6 +183,8 @@ export function Labour() {
             phone: data.phone || null,
             default_work_category: data.default_work_category,
             default_daily_rate: rateValue,
+            half_day_rate: halfDayRateValue,
+            overtime_rate: overtimeRateValue,
           },
         },
         {
@@ -243,6 +256,8 @@ export function Labour() {
     setValue("phone", worker.phone || "");
     setValue("default_work_category", worker.default_work_category);
     setValue("default_daily_rate", worker.default_daily_rate.toString());
+    setValue("half_day_rate", worker.half_day_rate?.toString() || "");
+    setValue("overtime_rate", worker.overtime_rate?.toString() || "");
     setIsDialogOpen(true);
   };
 
@@ -382,6 +397,50 @@ export function Labour() {
                     </p>
                   )}
                 </div>
+
+                {/* Half Day Rate and Overtime Rate - Only when editing */
+                  editingLabour && (
+                    <>
+                      <div className="space-y-2">
+                        <Label htmlFor="half_day_rate">Half Day Rate (₹)</Label>
+                        <Input
+                          id="half_day_rate"
+                          type="number"
+                          step="0.01"
+                          placeholder="e.g., 650"
+                          {...register("half_day_rate")}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          If not set, site's half-day multiplier will be used
+                        </p>
+                        {errors.half_day_rate && (
+                          <p className="text-sm text-destructive">
+                            {errors.half_day_rate.message}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="overtime_rate">Overtime Rate (₹/hr)</Label>
+                        <Input
+                          id="overtime_rate"
+                          type="number"
+                          step="0.01"
+                          placeholder="e.g., 150"
+                          {...register("overtime_rate")}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Hourly rate for overtime hours. Leave blank if worker is not eligible for overtime.
+                        </p>
+                        {errors.overtime_rate && (
+                          <p className="text-sm text-destructive">
+                            {errors.overtime_rate.message}
+                          </p>
+                        )}
+                      </div>
+                    </>
+                  )
+                }
 
                 {/* Optional Site Assignment - Only for Admin creating new labour (not editing) */}
                 {!editingLabour && profile?.role === "admin" && (

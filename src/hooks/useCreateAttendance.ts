@@ -52,6 +52,7 @@ export function useCreateAttendance() {
           work_category: record.work_category || "mason", // Ensure work_category is never null
           last_edited_by: record.last_edited_by,
           rate_applied: rateApplied,
+          overtime_hours: record.overtime_hours,
         };
       });
 

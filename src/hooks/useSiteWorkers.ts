@@ -8,6 +8,7 @@ export interface SiteWorker {
   phone: string | null;
   category: string;
   defaultRate: number;
+  overtimeRate: number | null;
   assignedAt: string;
   activeSiteCount: number;
 }
@@ -28,7 +29,8 @@ export function useSiteWorkers(siteId: string) {
             full_name,
             phone,
             default_work_category,
-            default_daily_rate
+            default_daily_rate,
+            overtime_rate
           )
         `)
         .eq("site_id", siteId)
@@ -65,6 +67,7 @@ export function useSiteWorkers(siteId: string) {
         phone: a.labour?.phone || null,
         category: a.labour?.default_work_category || "Unspecified",
         defaultRate: a.labour?.default_daily_rate || 0,
+        overtimeRate: a.labour?.overtime_rate ?? null,
         assignedAt: a.assigned_at,
         activeSiteCount: siteCountsMap.get(a.labour_id) || 1,
       }));

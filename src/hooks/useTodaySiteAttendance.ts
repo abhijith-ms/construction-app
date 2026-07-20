@@ -9,6 +9,7 @@ export interface SiteAttendanceRecord {
   category: string;
   status: "present" | "absent" | "half_day" | "leave";
   rateApplied: number | null;
+  overtimeHours: number | null;
 }
 
 export function useTodaySiteAttendance(siteId: string, date?: Date) {
@@ -25,6 +26,7 @@ export function useTodaySiteAttendance(siteId: string, date?: Date) {
           labour_id,
           status,
           rate_applied,
+          overtime_hours,
           labour (
             id,
             full_name,
@@ -49,6 +51,7 @@ export function useTodaySiteAttendance(siteId: string, date?: Date) {
           | "half_day"
           | "leave",
         rateApplied: record.rate_applied,
+        overtimeHours: record.overtime_hours,
       }));
     },
     enabled: !!siteId,

@@ -91,8 +91,10 @@ export type Database = {
           default_daily_rate: number
           default_work_category: string
           full_name: string
+          half_day_rate: number | null
           id: string
           is_active: boolean
+          overtime_rate: number | null
           phone: string | null
           updated_at: string
         }
@@ -101,8 +103,10 @@ export type Database = {
           default_daily_rate: number
           default_work_category: string
           full_name: string
+          half_day_rate?: number | null
           id?: string
           is_active?: boolean
+          overtime_rate?: number | null
           phone?: string | null
           updated_at?: string
         }
@@ -111,8 +115,10 @@ export type Database = {
           default_daily_rate?: number
           default_work_category?: string
           full_name?: string
+          half_day_rate?: number | null
           id?: string
           is_active?: boolean
+          overtime_rate?: number | null
           phone?: string | null
           updated_at?: string
         }
@@ -193,6 +199,7 @@ export type Database = {
           labour_id: string
           last_edited_at: string | null
           last_edited_by: string | null
+          overtime_hours: number | null
           rate_applied: number | null
           site_id: string
           status: string
@@ -204,6 +211,7 @@ export type Database = {
           labour_id: string
           last_edited_at?: string | null
           last_edited_by?: string | null
+          overtime_hours?: number | null
           rate_applied?: number | null
           site_id: string
           status: string
@@ -215,6 +223,7 @@ export type Database = {
           labour_id?: string
           last_edited_at?: string | null
           last_edited_by?: string | null
+          overtime_hours?: number | null
           rate_applied?: number | null
           site_id?: string
           status?: string

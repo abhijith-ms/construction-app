@@ -10,6 +10,8 @@ export interface LabourWithSiteAssignments {
   phone: string | null;
   default_work_category: string;
   default_daily_rate: number;
+  half_day_rate: number | null;
+  overtime_rate: number | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
