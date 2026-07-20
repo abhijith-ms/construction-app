@@ -1,6 +1,8 @@
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/stores/authStore";
 import { useDashboardStats } from "@/hooks/useDashboardStats";
+import { useAttendanceNavigation } from "@/hooks/useAttendanceNavigation";
+import { AttendanceSitePickerDialog } from "@/components/AttendanceSitePickerDialog";
 import {
   Card,
   CardContent,
@@ -25,6 +27,13 @@ export function Dashboard() {
   const { profile } = useAuthStore();
   const navigate = useNavigate();
   const { data: stats, isLoading } = useDashboardStats();
+  const {
+    assignedSites,
+    isSitePickerOpen,
+    setIsSitePickerOpen,
+    handleAttendanceClick,
+    goToSiteAttendance,
+  } = useAttendanceNavigation();
 
   const isSupervisor = profile?.role === "supervisor";
   const canManage = profile?.role === "admin" || profile?.role === "office_manager";
@@ -174,7 +183,7 @@ export function Dashboard() {
           <Button
             size="lg"
             className="h-16 text-lg justify-start gap-3"
-            onClick={() => handleNavigate("/attendance")}
+            onClick={handleAttendanceClick}
           >
             <CalendarCheck className="h-6 w-6" />
             Mark Attendance
@@ -203,6 +212,16 @@ export function Dashboard() {
           )}
         </div>
       </div>
+
+      {/* Site picker for supervisors assigned to multiple sites */}
+      {isSupervisor && (
+        <AttendanceSitePickerDialog
+          open={isSitePickerOpen}
+          onOpenChange={setIsSitePickerOpen}
+          sites={assignedSites}
+          onSelect={goToSiteAttendance}
+        />
+      )}
     </div>
   );
 }

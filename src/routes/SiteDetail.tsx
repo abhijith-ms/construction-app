@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { format, parseISO, subDays, addDays, startOfMonth, endOfMonth, isWithinInterval } from "date-fns";
 import { useAuthStore } from "@/stores/authStore";
 import { useForm } from "react-hook-form";
@@ -32,6 +32,8 @@ import { toast } from "sonner";
 import { ArrowLeft, ArrowRight, Calendar, DollarSign, Users, Wallet, ClipboardList, Package, AlertTriangle } from "lucide-react";
 
 type UserRole = "admin" | "office_manager" | "supervisor";
+
+const SITE_DETAIL_TABS = ["overview", "labour", "attendance", "expenses", "receipts", "payroll"] as const;
 
 // Type for expense
 interface SiteExpense {
@@ -222,7 +224,11 @@ export default function SiteDetail() {
   const { profile } = useAuthStore();
   const userRole = (profile?.role || "supervisor") as UserRole;
 
-  const [activeTab, setActiveTab] = useState("overview");
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(() => {
+    const tabParam = searchParams.get("tab");
+    return (SITE_DETAIL_TABS as readonly string[]).includes(tabParam || "") ? tabParam! : "overview";
+  });
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [expenseFilter, setExpenseFilter] = useState<"all" | "this-month" | "custom-range">("all");
   const [receiptFilter, setReceiptFilter] = useState<"all" | "this-month" | "custom-range">("all");

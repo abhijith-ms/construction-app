@@ -1,5 +1,7 @@
 import { NavLink, useLocation } from "react-router-dom";
 import { useAuthStore } from "@/stores/authStore";
+import { useAttendanceNavigation } from "@/hooks/useAttendanceNavigation";
+import { AttendanceSitePickerDialog } from "@/components/AttendanceSitePickerDialog";
 import {
   Building2,
   Users,
@@ -110,17 +112,25 @@ interface NavButtonProps {
   label: string;
   icon: React.ReactNode;
   isActive: boolean;
+  onClick?: () => void;
 }
 
-function NavButton({ to, label, icon, isActive }: NavButtonProps) {
+function NavButton({ to, label, icon, isActive, onClick }: NavButtonProps) {
+  const className = `flex flex-col items-center justify-center gap-1 py-2 px-3 min-w-[64px] min-h-[56px] rounded-lg transition-colors ${
+    isActive ? "text-primary" : "text-slate-500 hover:text-slate-700"
+  }`;
+
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className={className}>
+        <span className={isActive ? "text-primary" : ""}>{icon}</span>
+        <span className="text-xs font-medium">{label}</span>
+      </button>
+    );
+  }
+
   return (
-    <NavLink
-      to={to}
-      end
-      className={`flex flex-col items-center justify-center gap-1 py-2 px-3 min-w-[64px] min-h-[56px] rounded-lg transition-colors ${
-        isActive ? "text-primary" : "text-slate-500 hover:text-slate-700"
-      }`}
-    >
+    <NavLink to={to} end className={className}>
       <span className={isActive ? "text-primary" : ""}>{icon}</span>
       <span className="text-xs font-medium">{label}</span>
     </NavLink>
@@ -132,8 +142,20 @@ export function MobileBottomNav() {
   const location = useLocation();
   const [moreOpen, setMoreOpen] = useState(false);
   const role = profile?.role as "admin" | "office_manager" | "supervisor" | undefined;
+  const isSupervisor = role === "supervisor";
+  const {
+    assignedSites,
+    isSitePickerOpen,
+    setIsSitePickerOpen,
+    handleAttendanceClick,
+    goToSiteAttendance,
+  } = useAttendanceNavigation();
 
   if (!role) return null;
+
+  const isSiteAttendanceRoute =
+    location.pathname.startsWith("/sites/") &&
+    new URLSearchParams(location.search).get("tab") === "attendance";
 
   // Filter items based on role
   const visibleNavItems = navItems.filter((item) =>
@@ -155,15 +177,26 @@ export function MobileBottomNav() {
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200 shadow-lg md:hidden pb-safe">
       <div className="flex items-center justify-around px-2">
-        {mainNavItems.map((item) => (
-          <NavButton
-            key={item.to}
-            to={item.to}
-            label={item.label}
-            icon={item.icon}
-            isActive={location.pathname === item.to}
-          />
-        ))}
+        {mainNavItems.map((item) =>
+          item.to === "/attendance" && isSupervisor ? (
+            <NavButton
+              key={item.to}
+              to={item.to}
+              label={item.label}
+              icon={item.icon}
+              isActive={isSiteAttendanceRoute}
+              onClick={handleAttendanceClick}
+            />
+          ) : (
+            <NavButton
+              key={item.to}
+              to={item.to}
+              label={item.label}
+              icon={item.icon}
+              isActive={location.pathname === item.to}
+            />
+          )
+        )}
         {needsMore && (
           <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
             <SheetTrigger asChild>
@@ -206,6 +239,16 @@ export function MobileBottomNav() {
           </Sheet>
         )}
       </div>
+
+      {/* Site picker for supervisors assigned to multiple sites */}
+      {isSupervisor && (
+        <AttendanceSitePickerDialog
+          open={isSitePickerOpen}
+          onOpenChange={setIsSitePickerOpen}
+          sites={assignedSites}
+          onSelect={goToSiteAttendance}
+        />
+      )}
     </nav>
   );
 }

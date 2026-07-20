@@ -4,6 +4,36 @@ This file tracks design debt and deferred decisions that were made deliberately 
 
 ---
 
+## RESOLVED — Supervisors routed to global `/attendance` instead of their site's Attendance tab
+
+**Where:** `src/hooks/useAttendanceNavigation.ts` (new, shared decision logic), `src/components/AttendanceSitePickerDialog.tsx` (new, shared picker UI), consumed by `src/routes/ProtectedLayout.tsx` (desktop sidebar), `src/components/MobileBottomNav.tsx` (mobile bottom nav), `src/routes/Dashboard.tsx` ("Mark Attendance" quick action). Tab targeting via `src/routes/SiteDetail.tsx`'s new `?tab=` read on mount.
+
+**What:** All three "Attendance" entry points previously hardcoded `navigate("/attendance")` for every role, including supervisors — routing them to a screen missing the OT Hours field instead of the SiteDetail Attendance tab where it exists.
+
+**Fix:** Admin/Office Manager unchanged (still `/attendance`). Supervisors: 0 assigned sites → falls back to `/attendance`; 1 site → `/sites/:siteId?tab=attendance` directly; 2+ sites → `AttendanceSitePickerDialog` shown first. All three entry points now share the same `useAttendanceNavigation()` hook and picker component, so there's a single place to change this behavior going forward.
+
+**Verification:** Playwright, both desktop and mobile (390×844) viewports — `vikram@constructionapp.local` (1 site) and `anil@constructionapp.local` (2 sites) tested against all three entry points; `admin@constructionapp.local` confirmed unchanged. `tsc -b` clean.
+
+**Status:** RESOLVED on 2026-07-21.
+
+---
+
+## RESOLVED — `labour_attendance_secure` view is missing `overtime_hours`, breaking OT reads
+
+**Where:** View definition, now in `supabase/migrations/20260721080001_add_overtime_hours_to_attendance_secure_view.sql` (supersedes the column list from `20260623080017_fix_view_security_invoker.sql`); consumed by `src/hooks/useTodaySiteAttendance.ts`, read from `src/routes/SiteDetail.tsx`'s Attendance tab.
+
+**What:** `supabase/migrations/20260713080003_add_overtime_hours_to_attendance.sql` added `overtime_hours` to the base `labour_attendance` table on 2026-07-13, but no migration ever added it to the `labour_attendance_secure` view's explicit column list. Any query selecting `overtime_hours` through the secure view failed with Postgres error `42703: column labour_attendance_secure.overtime_hours does not exist`.
+
+**Observed behavior (before fix):** Confirmed live via Playwright, reproducible for every role (tested as both `admin` and a `supervisor`, not a permissions issue): visiting a site's Attendance tab (`/sites/:id?tab=attendance`) fired a request to `labour_attendance_secure` selecting `overtime_hours` that 400'd. The tab still rendered (status buttons, category selector, OT input) but today's already-marked attendance never loaded into it.
+
+**Fix:** New migration `20260721080001_add_overtime_hours_to_attendance_secure_view.sql` recreates the view (`CREATE OR REPLACE VIEW`, same `security_invoker = true`) with `overtime_hours` added as a **plain passthrough column** — not masked like `rate_applied`. Per CLAUDE.md's role/permission matrix, "Mark overtime hours" is explicitly "operational, not financial" and available to supervisors on their own site(s) always, independent of the wage-visibility toggle (which only ever gated `rate_applied`). Row-level RLS on the base table still restricts which rows a supervisor can see at all. Note: Postgres's `CREATE OR REPLACE VIEW` only allows *appending* columns at the end of the existing list — inserting `overtime_hours` next to `rate_applied` mid-list errored with "cannot change name of view column", so it's appended after `last_edited_at` instead.
+
+**Verification:** Applied directly to the local Supabase Postgres container (`docker exec supabase_db_construction-app psql ...` — no Supabase CLI available in this environment) and confirmed via `\d public.labour_attendance_secure` that `overtime_hours numeric(5,2)` is present and `security_invoker=true` is preserved. Inserted a real test attendance row (Raju, Greenfield Residency, `overtime_hours = 3.5`), then via Playwright: (1) as `vikram` (supervisor, wage visibility **disabled**) — 0 console errors, 0 400s, OT Hours input correctly shows `3.5`, and the raw API response confirms `rate_applied: null` (still masked) alongside `overtime_hours: 3.5` (unmasked); (2) as `admin` — same request returns `rate_applied: 1300` (unmasked, as expected) alongside `overtime_hours: 3.5`. Test data removed afterward, DB restored to original seed state. `tsc -b` clean.
+
+**Status:** RESOLVED on 2026-07-21.
+
+---
+
 ## RESOLVED — Infinite render loop on `/attendance` when no site is selected
 
 **Where:** `src/hooks/useAttendance.ts:32`, consumed by `src/routes/Attendance.tsx:317-368`

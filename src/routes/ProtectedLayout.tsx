@@ -1,13 +1,15 @@
 import { useEffect } from "react";
-import { Outlet, useNavigate, NavLink } from "react-router-dom";
+import { Outlet, useNavigate, useLocation, NavLink } from "react-router-dom";
 import { useAuthStore } from "@/stores/authStore";
+import { useAttendanceNavigation } from "@/hooks/useAttendanceNavigation";
 import { Button } from "@/components/ui/button";
+import { AttendanceSitePickerDialog } from "@/components/AttendanceSitePickerDialog";
 import { Toaster } from "sonner";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
-import { 
-  Loader2, LogOut, Building2, LayoutDashboard, Users, 
+import {
+  Loader2, LogOut, Building2, LayoutDashboard, Users,
   Briefcase, UserCog, Calendar, Wallet, Receipt,
-  Truck, Package, BarChart3 
+  Truck, Package, BarChart3
 } from "lucide-react";
 
 // Navigation item type
@@ -20,7 +22,16 @@ interface NavItem {
 
 export function ProtectedLayout() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { isAuthenticated, loading, profile, signOut, initialize } = useAuthStore();
+  const isSupervisor = profile?.role === "supervisor";
+  const {
+    assignedSites,
+    isSitePickerOpen,
+    setIsSitePickerOpen,
+    handleAttendanceClick,
+    goToSiteAttendance,
+  } = useAttendanceNavigation();
 
   // Initialize auth state on mount
   useEffect(() => {
@@ -38,6 +49,10 @@ export function ProtectedLayout() {
     await signOut();
     navigate("/login");
   };
+
+  const isSiteAttendanceRoute =
+    location.pathname.startsWith("/sites/") &&
+    new URLSearchParams(location.search).get("tab") === "attendance";
 
   if (loading) {
     return (
@@ -120,17 +135,29 @@ export function ProtectedLayout() {
 
         {/* Navigation Links */}
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end
-              className={sidebarLinkClass}
-            >
-              {item.icon}
-              <span>{item.label}</span>
-            </NavLink>
-          ))}
+          {navItems.map((item) =>
+            item.to === "/attendance" && isSupervisor ? (
+              <button
+                key={item.to}
+                type="button"
+                onClick={handleAttendanceClick}
+                className={sidebarLinkClass({ isActive: isSiteAttendanceRoute })}
+              >
+                {item.icon}
+                <span>{item.label}</span>
+              </button>
+            ) : (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end
+                className={sidebarLinkClass}
+              >
+                {item.icon}
+                <span>{item.label}</span>
+              </NavLink>
+            )
+          )}
         </nav>
 
         {/* User Info & Logout at bottom */}
@@ -161,6 +188,16 @@ export function ProtectedLayout() {
 
       {/* Mobile Bottom Navigation */}
       <MobileBottomNav />
+
+      {/* Site picker for supervisors assigned to multiple sites */}
+      {isSupervisor && (
+        <AttendanceSitePickerDialog
+          open={isSitePickerOpen}
+          onOpenChange={setIsSitePickerOpen}
+          sites={assignedSites}
+          onSelect={goToSiteAttendance}
+        />
+      )}
     </div>
   );
 }

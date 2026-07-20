@@ -194,8 +194,12 @@ See `KNOWN_GAPS.md` for full details. Summary of open items:
 3. **labour_site_assignments / site_labour_assignments linkage** — ending a rate assignment (end_date set) triggers `is_active = false` on the roster table via application layer (useEndLabourSiteAssignment hook)
 
 **Active bugs being worked:**
-- Sidebar navigation breaks after several clicks — URL changes but content doesn't re-render (React Router issue, under investigation)
-- OT Hours field not appearing in global Attendance screen — only added to SiteDetail.tsx Attendance tab so far; global `/attendance` route needs same treatment OR supervisors should be routed directly to their site's Attendance tab
+- (none currently — see Recently resolved below)
+
+**Recently resolved:**
+- RESOLVED 2026-07-21 — Sidebar navigation breaks after several clicks (URL changes but content doesn't re-render). Root cause: `useAttendance.ts` returned a fresh `[]` on every render when no site was selected, causing an infinite render loop on `/attendance` (see KNOWN_GAPS.md, RESOLVED entry). Fixed with a stable empty-array reference. Not fully confirmed this was the sole explanation for freezes at production data scale — watch for recurrence.
+- RESOLVED 2026-07-21 — OT Hours field not appearing in global Attendance screen. Fixed by routing supervisors directly to their assigned site's Attendance tab (`/sites/:siteId?tab=attendance`) instead of the global `/attendance` route, with a site picker shown when they have more than one assigned site. Admin/Office Manager still use the global route unchanged. Applied consistently across all three entry points: desktop sidebar (`ProtectedLayout.tsx`), mobile bottom nav (`MobileBottomNav.tsx`), and the Dashboard "Mark Attendance" quick action (`Dashboard.tsx`) — shared logic lives in `src/hooks/useAttendanceNavigation.ts` and `src/components/AttendanceSitePickerDialog.tsx`.
+- RESOLVED 2026-07-21 — `labour_attendance_secure` view was missing the `overtime_hours` column (added to the base table on 2026-07-13 but never propagated to the view), causing every read of OT hours through the view to 400. Fixed via new migration `20260721080001_add_overtime_hours_to_attendance_secure_view.sql`, exposing `overtime_hours` unmasked (operational, not financial, per the role/permission matrix) alongside the still-masked `rate_applied`. Verified end-to-end with real test data as both a supervisor without wage visibility and admin — see KNOWN_GAPS.md for full verification detail.
 
 **Pending features:**
 - Work progress tracking (site phases with % complete) — requires 1 new migration
