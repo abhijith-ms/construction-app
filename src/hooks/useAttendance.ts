@@ -4,6 +4,10 @@ import type { Tables } from "@/types/database";
 
 type Attendance = Tables<"labour_attendance_secure">;
 
+// Stable reference so consumers depending on `data` in effect/memo deps don't
+// re-fire on every render when the query has no data yet (e.g. no site selected).
+const EMPTY_ATTENDANCE: Attendance[] = [];
+
 /**
  * Hook to fetch labour attendance for a specific week and site
  * @param siteId - The site ID to filter by
@@ -29,5 +33,5 @@ export function useAttendance(siteId: string | null, weekStart: string, weekEnd:
     enabled: !!siteId && !!weekStart && !!weekEnd,
   });
 
-  return { data: data ?? [], isLoading, error };
+  return { data: data ?? EMPTY_ATTENDANCE, isLoading, error };
 }

@@ -4,6 +4,36 @@ This file tracks design debt and deferred decisions that were made deliberately 
 
 ---
 
+## RESOLVED — Infinite render loop on `/attendance` when no site is selected
+
+**Where:** `src/hooks/useAttendance.ts:32`, consumed by `src/routes/Attendance.tsx:317-368`
+
+**What:** `useAttendance()` returns `data ?? []` — a brand-new array literal on every render whenever the query has no data (which is the case whenever `enabled` is `false`, i.e. whenever no site is selected, since `enabled: !!siteId`). `Attendance.tsx` has a `useEffect` with `existingAttendance` in its dependency array; because that reference changes on every render, the effect body re-runs every render, and when `selectedSiteId === ""` it calls `setAttendanceState(new Map())` — again a new object every time, which is never `Object.is`-equal to the previous state, so React schedules another render. This produces a genuine render → effect → setState → render loop.
+
+**Observed behavior:** Reproduced live via Playwright — navigating to `/attendance` (its default state has no site pre-selected) reliably logs ~20-25 "Maximum update depth exceeded" React warnings. React's dev-mode nested-update guard caps the loop at ~50 iterations and gives up, so it self-heals and the final rendered content is correct with the small local seed dataset (4 workers) — but real CPU/time is burned on every single mount of this page in this state, and the cost scales with how expensive each of those ~50 wasted re-renders is (this page renders one row/card per active worker). With production-scale data (50-200 workers per CLAUDE.md), this is a plausible cause of the sidebar-navigation freeze reported in CLAUDE.md Section 7, though that has not yet been confirmed against production-scale data.
+
+**Fix:** Gave the hook a stable empty-array reference instead of allocating a new one each render — module-level `const EMPTY_ATTENDANCE: Attendance[] = [];` returned via `data ?? EMPTY_ATTENDANCE`.
+
+**Verification:** Re-ran the exact Playwright repro (fresh dev server, Sites → Labour Pool → Attendance) that reliably produced 23 "Maximum update depth exceeded" warnings before the fix — 0 warnings after, on two independent cold-start runs. Also verified the site-selected flow (selecting a site, attendance grid loading with real records) still works with 0 console errors, and `tsc -b` passes clean.
+
+**Status:** RESOLVED on 2026-07-21.
+
+---
+
+## OPEN — Duplicate Sheet + Dialog mount in Labour.tsx (`AssignmentSheet`, `AdvanceSheet`)
+
+**Where:** `src/routes/Labour.tsx` — `AssignmentSheet` (~line 1170-1195) and `AdvanceSheet` (~line 1355-1401)
+
+**What:** Both components render a mobile `<Sheet>` and a desktop `<Dialog>` simultaneously, distinguished only by wrapping them in `hidden md:block` / (mobile equivalent) CSS classes — not by conditional rendering. Radix's `Dialog`/`Sheet` primitives portal their content to `document.body`, which is outside those wrapper divs, so the CSS hiding does not stop the "wrong" one from mounting. Both share a single `react-hook-form` `control` from one `useForm()` call, with two separate `<Controller name="site_id" ...>` (AssignmentSheet) / `<Controller name="site_id" ...>` (AdvanceSheet) registrations for the same field name.
+
+**Risk:** When `isOpen` is true, this likely mounts two overlays and two forms into the DOM at once (one per breakpoint variant) instead of exactly one, and two `Controller`s registering the same field name against one RHF instance is an unsupported pattern that can cause registration/re-render thrashing. Confirmed via DOM inspection that neither is mounted while `isOpen` is false (Radix's `Presence` correctly skips rendering when closed), so this is unrelated to the render-loop bug above — it only manifests once a user actually opens the Assignment or Advance sheet.
+
+**When to fix:** Not fixed in this session per instruction — flagged for a follow-up. Likely fix is to pick one of `<Sheet>`/`<Dialog>` based on `useIsMobile()` (already used elsewhere in the app, see `src/hooks/use-mobile.ts`) rather than mounting both.
+
+**Status:** Diagnosed 2026-07-21, not fixed.
+
+---
+
 ## RESOLVED — Stock transfer atomicity
 
 **Fixed in:** migration `20260701080031_stock_transfer_function.sql`
