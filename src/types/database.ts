@@ -796,6 +796,51 @@ export type Database = {
           },
         ]
       }
+      site_phases: {
+        Row: {
+          created_at: string
+          id: string
+          last_edited_at: string
+          last_edited_by: string
+          percent_complete: number
+          phase: string
+          site_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_edited_at?: string
+          last_edited_by: string
+          percent_complete?: number
+          phase: string
+          site_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_edited_at?: string
+          last_edited_by?: string
+          percent_complete?: number
+          phase?: string
+          site_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "site_phases_last_edited_by_fkey"
+            columns: ["last_edited_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_phases_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       site_settings: {
         Row: {
           half_day_multiplier: number
@@ -1280,6 +1325,7 @@ export type Database = {
           labour_id: string | null
           last_edited_at: string | null
           last_edited_by: string | null
+          overtime_hours: number | null
           rate_applied: number | null
           site_id: string | null
           status: string | null
@@ -1291,6 +1337,7 @@ export type Database = {
           labour_id?: string | null
           last_edited_at?: string | null
           last_edited_by?: string | null
+          overtime_hours?: number | null
           rate_applied?: never
           site_id?: string | null
           status?: string | null
@@ -1302,6 +1349,7 @@ export type Database = {
           labour_id?: string | null
           last_edited_at?: string | null
           last_edited_by?: string | null
+          overtime_hours?: number | null
           rate_applied?: never
           site_id?: string | null
           status?: string | null

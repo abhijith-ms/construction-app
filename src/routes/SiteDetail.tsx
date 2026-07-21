@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { format, parseISO, subDays, addDays, startOfMonth, endOfMonth, isWithinInterval } from "date-fns";
 import { useAuthStore } from "@/stores/authStore";
@@ -18,6 +18,8 @@ import { useUpdateSiteLabourAssignment } from "@/hooks/useUpdateSiteLabourAssign
 import { useCreateSiteExpense } from "@/hooks/useCreateSiteExpense";
 import { useCreateSitePayReceipt } from "@/hooks/useCreateSitePayReceipt";
 import { useSiteWagePermission } from "@/hooks/useSiteWagePermission";
+import { useSitePhases, PHASE_ORDER, PHASE_LABELS, type PhaseName } from "@/hooks/useSitePhases";
+import { useUpdateSitePhase } from "@/hooks/useUpdateSitePhase";
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,11 +31,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { ArrowLeft, ArrowRight, Calendar, DollarSign, Users, Wallet, ClipboardList, Package, AlertTriangle } from "lucide-react";
+import { ArrowLeft, ArrowRight, Calendar, DollarSign, Users, Wallet, ClipboardList, Package, AlertTriangle, TrendingUp } from "lucide-react";
 
 type UserRole = "admin" | "office_manager" | "supervisor";
 
-const SITE_DETAIL_TABS = ["overview", "labour", "attendance", "expenses", "receipts", "payroll"] as const;
+const SITE_DETAIL_TABS = ["overview", "progress", "labour", "attendance", "expenses", "receipts", "payroll"] as const;
 
 // Type for expense
 interface SiteExpense {
@@ -218,6 +220,77 @@ function ReceiptForm({ siteId, onSubmit }: { siteId: string; onSubmit: (data: an
   );
 }
 
+// Extracted as a top-level component (not defined inside SiteDetail) so it
+// keeps a stable identity across parent re-renders — see the WorkerAttendanceCard
+// fix in Attendance.tsx for why an inline-defined component here would remount
+// on every keystroke elsewhere on the page.
+//
+// Local state gives instant visual feedback while dragging/typing; the
+// mutation only commits on release (range) or blur/Enter (number input),
+// not on every onChange — a range input fires onChange continuously while
+// dragging, so committing there would spam the API dozens of times per drag.
+function PhaseRow({
+  phase,
+  percentComplete,
+  onCommit,
+}: {
+  siteId: string;
+  phase: PhaseName;
+  percentComplete: number;
+  onCommit: (value: number) => void;
+}) {
+  const [localValue, setLocalValue] = useState(percentComplete);
+
+  useEffect(() => {
+    setLocalValue(percentComplete);
+  }, [percentComplete]);
+
+  const commit = (value: number) => {
+    const clamped = Math.min(100, Math.max(0, value));
+    setLocalValue(clamped);
+    if (clamped !== percentComplete) {
+      onCommit(clamped);
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <Label className="text-sm font-medium">{PHASE_LABELS[phase]}</Label>
+        <span className="text-sm text-muted-foreground">{localValue}%</span>
+      </div>
+      <div className="flex items-center gap-3">
+        <input
+          type="range"
+          min={0}
+          max={100}
+          step={5}
+          value={localValue}
+          onChange={(e) => setLocalValue(parseInt(e.target.value, 10))}
+          onMouseUp={(e) => commit(parseInt((e.target as HTMLInputElement).value, 10))}
+          onTouchEnd={(e) => commit(parseInt((e.target as HTMLInputElement).value, 10))}
+          className="flex-1 accent-primary"
+        />
+        <Input
+          type="number"
+          min={0}
+          max={100}
+          value={localValue}
+          onChange={(e) => {
+            const parsed = parseInt(e.target.value, 10);
+            setLocalValue(Number.isNaN(parsed) ? 0 : parsed);
+          }}
+          onBlur={(e) => commit(parseInt(e.target.value, 10) || 0)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") commit(localValue);
+          }}
+          className="w-20"
+        />
+      </div>
+    </div>
+  );
+}
+
 export default function SiteDetail() {
   const { siteId } = useParams<{ siteId: string }>();
   const navigate = useNavigate();
@@ -248,10 +321,12 @@ export default function SiteDetail() {
   const { data: expenses } = useSiteExpenses(siteId);
   const { data: receipts } = usePayReceipts();
   const { canViewWages } = useSiteWagePermission(siteId || "");
+  const { data: phases } = useSitePhases(siteId || null);
 
   // Mutations
   const createAttendance = useCreateAttendance();
   const createAssignment = useCreateLabourSiteAssignment();
+  const updateSitePhase = useUpdateSitePhase();
   const updateAssignment = useUpdateSiteLabourAssignment();
   const createExpense = useCreateSiteExpense();
   const createReceipt = useCreateSitePayReceipt();
@@ -431,6 +506,7 @@ export default function SiteDetail() {
           {/* Tab Navigation */}
           <TabsList className="w-full flex h-10">
             <TabsTrigger value="overview" className="flex-1 text-xs px-1">Overview</TabsTrigger>
+            <TabsTrigger value="progress" className="flex-1 text-xs px-1">Progress</TabsTrigger>
             <TabsTrigger value="labour" className="flex-1 text-xs px-1">Labour</TabsTrigger>
             <TabsTrigger value="attendance" className="flex-1 text-xs px-1">Attendance</TabsTrigger>
             <TabsTrigger value="expenses" className="flex-1 text-xs px-1">Expenses</TabsTrigger>
@@ -502,6 +578,68 @@ export default function SiteDetail() {
                   </div>
                   <span className="font-medium">{workers?.length || 0}</span>
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* Work Progress summary (read-only; edit on the Progress tab) */}
+            {phases && phases.length > 0 && (
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle>Work Progress</CardTitle>
+                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {phases.map((p) => (
+                    <div key={p.id} className="space-y-1">
+                      <div className="flex items-center justify-between text-sm">
+                        <span>{PHASE_LABELS[p.phase as PhaseName] || p.phase}</span>
+                        <span className="font-medium">{p.percent_complete}%</span>
+                      </div>
+                      <div className="h-2 w-full rounded-full bg-slate-100">
+                        <div
+                          className="h-2 rounded-full bg-primary"
+                          style={{ width: `${p.percent_complete}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          {/* Tab: Progress */}
+          <TabsContent value="progress" className="mt-0 space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Construction Phases</CardTitle>
+                <CardDescription>
+                  Update % complete for each phase. Phases are independent — there's no requirement to finish one before starting the next.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                {PHASE_ORDER.map((phaseName) => {
+                  const row = phases?.find((p) => p.phase === phaseName);
+                  if (!siteId || !row) return null;
+                  return (
+                    <PhaseRow
+                      key={phaseName}
+                      siteId={siteId}
+                      phase={phaseName}
+                      percentComplete={row.percent_complete}
+                      onCommit={(percentComplete) =>
+                        updateSitePhase.mutate(
+                          { siteId, phase: phaseName, percentComplete },
+                          {
+                            onError: (error) => {
+                              toast.error("Failed to update progress", { description: error.message });
+                            },
+                          }
+                        )
+                      }
+                    />
+                  );
+                })}
               </CardContent>
             </Card>
           </TabsContent>

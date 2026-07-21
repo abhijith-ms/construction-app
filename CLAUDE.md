@@ -96,11 +96,12 @@ This is the single source of truth for this project. Read it fully before writin
 
 ---
 
-## 4. DATABASE — CURRENT STATE (38 migrations as of 2026-07-21)
+## 4. DATABASE — CURRENT STATE (39 migrations as of 2026-07-21)
 
 Key tables and their purpose:
 - `profiles` — users, roles (admin/office_manager/supervisor)
 - `sites` — construction projects with budget, client, status
+- `site_phases` — % complete per construction phase per site (foundation/structure/mep/finishing/handover, fixed enum, independent — not sequentially gated). Auto-seeded at 0% by a trigger on site creation.
 - `site_settings` — per-site half-day multiplier (fallback when worker has no half_day_rate)
 - `supervisor_site_assignments` — many-to-many supervisors ↔ sites
 - `supervisor_wage_permissions` — per-supervisor per-site wage visibility toggle
@@ -112,7 +113,6 @@ Key tables and their purpose:
 - `labour_advances` — advances against workers, deducted from next settlement
 - `site_labour_assignments` — roster membership (which workers appear on a site's attendance screen)
 - `labour_site_assignments` — rate/category assignments per site with date ranges
-- `work_categories` — admin-configurable work categories (mason, helper, electrician etc.)
 - `pay_receipts` — client payments received per site
 - `site_expenses` + `office_expenses` — expenses at site or company level
 - `suppliers` + `purchase_orders` + `bills` + `supplier_payments` — procurement chain
@@ -143,6 +143,7 @@ Key Postgres functions:
 | Set job-type rate for a worker | ✓ | ✓ | Own site(s) — always |
 | View ₹ wage amounts | ✓ | ✓ | Only if wage-visibility toggle ON for that site |
 | Mark overtime hours | ✓ | ✓ | Own site(s) — always (operational, not financial) |
+| View/edit work progress (site phases) | ✓ | ✓ | Own site(s) — always (operational, not financial) |
 | Process/approve payroll | ✓ | ✓ | ✗ |
 | Record advances | ✓ | ✓ | ✗ |
 | Record pay receipts | ✓ | ✓ | ✗ |
@@ -201,10 +202,11 @@ See `KNOWN_GAPS.md` for full details. Summary of open items:
 - RESOLVED 2026-07-21 — OT Hours field not appearing in global Attendance screen. Fixed by routing supervisors directly to their assigned site's Attendance tab (`/sites/:siteId?tab=attendance`) instead of the global `/attendance` route, with a site picker shown when they have more than one assigned site. Admin/Office Manager still use the global route unchanged. Applied consistently across all three entry points: desktop sidebar (`ProtectedLayout.tsx`), mobile bottom nav (`MobileBottomNav.tsx`), and the Dashboard "Mark Attendance" quick action (`Dashboard.tsx`) — shared logic lives in `src/hooks/useAttendanceNavigation.ts` and `src/components/AttendanceSitePickerDialog.tsx`.
 - RESOLVED 2026-07-21 — `labour_attendance_secure` view was missing the `overtime_hours` column (added to the base table on 2026-07-13 but never propagated to the view), causing every read of OT hours through the view to 400. Fixed via new migration `20260721080001_add_overtime_hours_to_attendance_secure_view.sql`, exposing `overtime_hours` unmasked (operational, not financial, per the role/permission matrix) alongside the still-masked `rate_applied`. Verified end-to-end with real test data as both a supervisor without wage visibility and admin — see KNOWN_GAPS.md for full verification detail.
 - RESOLVED 2026-07-21 — P&L Reports screen showing ₹0. Root cause: `get_site_pnl()` itself was correct (verified directly via SQL and via the live authenticated RPC call, not an RLS issue); `Reports.tsx` simply defaulted to the current calendar month, and site data happened to be dated in a different month, so it silently rendered a real, correctly-empty result as if broken. Fixed by defaulting to a new "All Time" period option and showing "No data for this period" per-site instead of a misleading ₹0.00 breakdown when a user does select a genuinely empty period — see KNOWN_GAPS.md for full verification detail.
+- BUILT 2026-07-21 — Work progress tracking. New `site_phases` table (5 fixed phases, independent/not sequentially gated, manual entry, view+edit for Admin/Office Manager all sites and Supervisor own site(s) — see Section 5). Displays as a compact read-only summary on SiteDetail's Overview tab and a full editing UI on a new Progress tab. See KNOWN_GAPS.md for full design rationale and verification detail.
 
 **Pending features:**
-- Work progress tracking (site phases with % complete) — requires 1 new migration
 - Mobile Sheet forms (currently using desktop Dialog on mobile)
+- Admin-configurable work categories — `work_categories` is described in earlier notes as an existing admin-configurable table, but it was never built. Work categories are currently a hardcoded `WORK_CATEGORIES` array duplicated in `src/routes/Labour.tsx` and `src/routes/Attendance.tsx`. Treat this as a pending feature, not existing infrastructure, until a real table + admin UI is built.
 
 ---
 

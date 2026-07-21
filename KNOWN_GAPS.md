@@ -4,6 +4,44 @@ This file tracks design debt and deferred decisions that were made deliberately 
 
 ---
 
+## BUILT — Work progress tracking (site_phases)
+
+**Where:** `supabase/migrations/20260721080002_site_phases.sql`, `src/hooks/useSitePhases.ts`, `src/hooks/useUpdateSitePhase.ts`, `src/routes/SiteDetail.tsx` (new `PhaseRow` component, new Progress tab, new Overview summary card).
+
+**Design decisions (proposed and confirmed before building, per the working agreement):**
+1. **Fixed enum, not admin-configurable.** `phase` is a `CHECK` constraint on 5 values (`foundation`, `structure`, `mep`, `finishing`, `handover`), not a lookup table. Note: the "admin-configurable like `work_categories`" comparison in the original ask doesn't hold — `work_categories` isn't a real table either, see the separate note below.
+2. **Manual entry.** `percent_complete` (`SMALLINT`, 0-100) is entered directly by a person. No objective signal exists in the schema to derive it from.
+3. **Independent phases, no sequential gating.** Real construction phases overlap in practice (MEP often starts before Structure is 100%); a hard gate would force misreporting. The UI lists phases in a fixed logical order (`PHASE_ORDER` in `useSitePhases.ts`) for readability only, not enforcement.
+4. **Displays in both places.** A compact read-only progress-bar summary on SiteDetail's Overview tab, and the actual editing UI on a new Progress tab — mirrors the existing pattern where Overview shows rolled-up financial summaries and Payroll/Expenses/Receipts each get their own tab.
+5. **Permissions** (no existing matrix row covered this): View + Edit — Admin ✓ / Office Manager ✓ / Supervisor ✓ own site(s) only. Matches the `labour_attendance`/overtime-hours pattern (operational, not financial), not the `site_expenses` pattern (admin/office only). Added to CLAUDE.md Section 5.
+6. **Auto-seeded rows.** All 5 phase rows are created at 0% by a `SECURITY DEFINER` trigger (`seed_site_phases()`) on site creation, plus a one-time backfill in the same migration for the 2 pre-existing seeded sites. The app therefore only ever needs `SELECT`/`UPDATE` on `site_phases` — no client-facing `INSERT`/`DELETE` policy exists (default deny).
+
+**Bug caught before applying the migration:** the trigger originally used `NEW.created_by` for `site_phases.last_edited_by NOT NULL`. Turns out `sites.created_by` is nullable and `useCreateSite.ts`/`Sites.tsx` never actually set it — every site created through the app has `created_by = NULL`. That would have made the trigger throw and roll back *every future site creation*. Fixed with `COALESCE(NEW.created_by, auth.uid())` — `auth.uid()` reads the calling session's JWT claim even inside a `SECURITY DEFINER` function (same technique `get_my_role()`/`is_supervisor_for_site()` already use), so it correctly resolves to the real logged-in user. Caught by testing the trigger via raw `psql` first (which has no JWT session, so this failed loudly) before testing the real authenticated app path (which succeeded) — the difference between those two results is what surfaced the bug.
+
+**RLS verification** (real JWTs obtained via `/auth/v1/token`, not the CLI's superuser bypass): supervisor (`vikram`, assigned to Greenfield only) — `SELECT` on Greenfield's phases returns 5 rows, `SELECT` on Lakeview's phases returns `[]` (silently filtered, not an error); `UPDATE` on Greenfield succeeds, `UPDATE` on Lakeview returns `[]` (0 rows affected, silently blocked) and the DB confirms the value was unchanged.
+
+**Trigger verification:** direct `psql` insert into `sites` with no `created_by` set correctly failed (proving the NULL-handling bug existed and was real) before the fix; the real authenticated app flow (Playwright, actually clicking "Add Site") correctly succeeded after the fix, and the new site's 5 phase rows were confirmed seeded with `last_edited_by` resolved to the real admin's UUID via `auth.uid()`.
+
+**End-to-end UI verification:** edited a phase to a real value via the Progress tab's number input, confirmed the change survives a hard page reload (real persistence, not just optimistic local state), confirmed the Overview tab's summary card reflects it. Repeated as `vikram` (supervisor) navigating to his own site through the real UI, editing Structure to 40% — succeeded. Full `npx supabase db reset` (39 migrations) confirmed clean, and confirmed the trigger (not just the migration's backfill) correctly seeds both `seed.sql` sites' phases on a fully fresh database. `tsc -b` clean throughout.
+
+**Known minor limitation, not fixed:** if a phase update's mutation fails (e.g. network error), the `PhaseRow`'s local state has already optimistically updated before the request was sent, and there's no rollback wired — the user gets an error toast, but the displayed value can drift from the real DB value until the next unrelated refetch. Not fixed since it only affects a rare failure path and full rollback wiring adds meaningful complexity for that; flagging in case it matters.
+
+**Status:** BUILT on 2026-07-21.
+
+---
+
+## NOTE — `work_categories` is not a real table
+
+**Where:** `src/routes/Labour.tsx`, `src/routes/Attendance.tsx` (duplicated hardcoded `WORK_CATEGORIES` array).
+
+**What:** Earlier project notes (CLAUDE.md) described `work_categories` as an existing admin-configurable table. It was never built. There is no `work_categories` table anywhere in `supabase/migrations/`. Work categories are a plain hardcoded array, duplicated in two frontend files. CLAUDE.md Sections 4 and 7 corrected on 2026-07-21 to stop describing this as existing infrastructure.
+
+**Not yet corrected:** CLAUDE.md Section 5's permission matrix still has a "Manage work categories ✓ ✓ ✗" row implying a management UI exists. Flagged, not fixed — out of scope for what was asked when this was caught.
+
+**Status:** Documented 2026-07-21, not built.
+
+---
+
 ## RESOLVED — P&L Reports screen showing ₹0.00 for everything
 
 **Where:** `src/routes/Reports.tsx`, `src/hooks/usePnlReport.ts` (RPC wrapper, unchanged), `get_site_pnl()` Postgres function (unchanged — proven correct, not the bug).
