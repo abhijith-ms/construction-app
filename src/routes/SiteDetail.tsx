@@ -410,7 +410,8 @@ export default function SiteDetail() {
     overtimeHours?: number
   ) => {
     try {
-      const workerRate = workers?.find((w: any) => w.labourId === labourId)?.defaultRate || 0;
+      const worker = workers?.find((w: any) => w.labourId === labourId);
+      const workerRate = worker?.defaultRate || 0;
       const workerRates: Record<string, number> = { [labourId]: workerRate };
 
       await createAttendance.mutateAsync({
@@ -419,7 +420,7 @@ export default function SiteDetail() {
           site_id: siteId!,
           date: format(selectedDate, "yyyy-MM-dd"),
           status,
-          work_category: "mason",
+          work_category: worker?.category || "",
           last_edited_by: profile?.id || "",
           rate_applied: status === "absent" || status === "leave" ? null : workerRate,
           overtime_hours: overtimeHours || null,

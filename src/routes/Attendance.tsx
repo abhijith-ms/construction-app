@@ -5,6 +5,7 @@ import { useLabour } from "@/hooks/useLabour";
 import { useAssignedSites } from "@/hooks/useAssignedSites";
 import { useAttendance } from "@/hooks/useAttendance";
 import { useCreateAttendance } from "@/hooks/useCreateAttendance";
+import { useWorkCategories, getCategoryOptions, type WorkCategory } from "@/hooks/useWorkCategories";
 import { useSiteWagePermission } from "@/hooks/useSiteWagePermission";
 import { useActiveSiteAssignments, type ActiveSiteAssignment } from "@/hooks/useActiveSiteAssignments";
 import { useAllSitesAttendance, type AllSitesAttendanceData } from "@/hooks/useAllSitesAttendance";
@@ -23,15 +24,6 @@ const ATTENDANCE_STATUS_OPTIONS: { value: AttendanceStatus; label: string; color
   { value: "half_day", label: "Half Day", color: "bg-yellow-500" },
   { value: "absent", label: "Absent", color: "bg-red-500" },
   { value: "leave", label: "Leave", color: "bg-slate-400" },
-];
-
-const WORK_CATEGORIES = [
-  "mason",
-  "helper",
-  "electrician",
-  "painter",
-  "carpenter",
-  "plumber",
 ];
 
 // Attendance status badge styles (matching SiteDashboard.tsx)
@@ -218,6 +210,7 @@ interface WorkerAttendanceCardProps {
   dateStr: string;
   cellData: AttendanceRecord;
   canViewWages: boolean;
+  workCategories: WorkCategory[] | undefined;
   onUpdateCell: (labourId: string, date: string, updates: Partial<Omit<AttendanceRecord, "labourId" | "date">>) => void;
 }
 
@@ -226,6 +219,7 @@ const WorkerAttendanceCard = React.memo(function WorkerAttendanceCard({
   dateStr,
   cellData,
   canViewWages,
+  workCategories,
   onUpdateCell,
 }: WorkerAttendanceCardProps) {
   return (
@@ -269,8 +263,13 @@ const WorkerAttendanceCard = React.memo(function WorkerAttendanceCard({
             value={cellData.workCategory || worker.default_work_category || ""}
             onChange={(e) => onUpdateCell(worker.id, dateStr, { workCategory: e.target.value })}
           >
-            {WORK_CATEGORIES.map((cat) => (
-              <option key={cat} value={cat} className="capitalize">{cat}</option>
+            {getCategoryOptions(
+              workCategories,
+              cellData.workCategory || worker.default_work_category
+            ).map((option) => (
+              <option key={option.name} value={option.name} className="capitalize">
+                {option.retired ? `${option.name} (retired)` : option.name}
+              </option>
             ))}
           </select>
         </div>
@@ -314,6 +313,7 @@ export function Attendance() {
 
   const { data: sites, isLoading: sitesLoading } = useAssignedSites();
   const { data: labour, isLoading: labourLoading } = useLabour();
+  const { data: workCategories } = useWorkCategories();
   const { data: existingAttendance, isLoading: attendanceLoading } = useAttendance(
     selectedSiteId || null,
     format(currentWeek, "yyyy-MM-dd"),
@@ -644,6 +644,7 @@ export function Attendance() {
                           dateStr={dateStr}
                           cellData={cellData}
                           canViewWages={canViewWages}
+                          workCategories={workCategories}
                           onUpdateCell={stableUpdateCell}
                         />
                       );
@@ -722,9 +723,12 @@ export function Attendance() {
                                               })
                                             }
                                           >
-                                            {WORK_CATEGORIES.map((cat) => (
-                                              <option key={cat} value={cat}>
-                                                {cat}
+                                            {getCategoryOptions(
+                                              workCategories,
+                                              cellData.workCategory || worker.default_work_category
+                                            ).map((option) => (
+                                              <option key={option.name} value={option.name}>
+                                                {option.retired ? `${option.name} (retired)` : option.name}
                                               </option>
                                             ))}
                                           </select>

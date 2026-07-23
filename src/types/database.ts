@@ -1,3 +1,5 @@
+[0m[31mWARN: config section [inbucket] is deprecated. Please use [local_smtp] instead.[0m
+Connecting to db 5432
 export type Json =
   | string
   | number
@@ -1315,6 +1317,51 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      work_categories: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          last_edited_at: string
+          last_edited_by: string | null
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          last_edited_at?: string
+          last_edited_by?: string | null
+          name: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          last_edited_at?: string
+          last_edited_by?: string | null
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_categories_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_categories_last_edited_by_fkey"
+            columns: ["last_edited_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

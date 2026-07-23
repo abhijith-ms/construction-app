@@ -5,6 +5,7 @@ import { z } from "zod";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { useLabourPool } from "@/hooks/useLabourPool";
+import { useWorkCategories, getCategoryOptions } from "@/hooks/useWorkCategories";
 import { useCreateLabour } from "@/hooks/useCreateLabour";
 import { useUpdateLabour, useDeactivateLabour } from "@/hooks/useUpdateLabour";
 import { useWagePermissions } from "@/hooks/useWagePermissions";
@@ -60,15 +61,6 @@ import type { Labour as LabourType } from "@/hooks/useLabour";
 import type { LabourAdvanceWithDetails } from "@/hooks/useLabourAdvances";
 
 type Labour = LabourType;
-
-const WORK_CATEGORIES = [
-  "mason",
-  "helper",
-  "electrician",
-  "painter",
-  "carpenter",
-  "plumber",
-];
 
 const labourSchema = z.object({
   full_name: z.string().min(1, "Full name is required"),
@@ -127,6 +119,7 @@ function formatCurrency(amount: number | null) {
 export function Labour() {
   const { profile } = useAuthStore();
   const { data: labour, isLoading, error } = useLabourPool();
+  const { data: workCategories } = useWorkCategories();
   const { mutate: createLabour, isPending: isCreating } = useCreateLabour();
   const { mutate: updateLabour, isPending: isUpdating } = useUpdateLabour();
   const { mutate: deactivateLabour } = useDeactivateLabour();
@@ -370,9 +363,12 @@ export function Labour() {
                     {...register("default_work_category")}
                   >
                     <option value="">Select category...</option>
-                    {WORK_CATEGORIES.map((category) => (
-                      <option key={category} value={category}>
-                        {category}
+                    {getCategoryOptions(
+                      workCategories,
+                      editingLabour?.default_work_category
+                    ).map((option) => (
+                      <option key={option.name} value={option.name}>
+                        {option.retired ? `${option.name} (retired)` : option.name}
                       </option>
                     ))}
                   </select>
@@ -491,9 +487,9 @@ export function Labour() {
                             defaultValue={defaultWorkCategory || ""}
                           >
                             <option value="">Select category...</option>
-                            {WORK_CATEGORIES.map((category) => (
-                              <option key={category} value={category}>
-                                {category.charAt(0).toUpperCase() + category.slice(1)}
+                            {getCategoryOptions(workCategories).map((option) => (
+                              <option key={option.name} value={option.name}>
+                                {option.name.charAt(0).toUpperCase() + option.name.slice(1)}
                               </option>
                             ))}
                           </select>
@@ -905,6 +901,7 @@ function AssignmentSheet({
 }) {
   const { profile } = useAuthStore();
   const { data: sites } = useSites();
+  const { data: workCategories } = useWorkCategories();
   const { data: assignments, isLoading, refetch } = useLabourSiteAssignments(worker?.id || null);
   const { mutate: createAssignment, isPending: isCreating } = useCreateLabourSiteAssignment();
   const { mutate: endAssignment, isPending: isEnding } = useEndLabourSiteAssignment();
@@ -1027,9 +1024,9 @@ function AssignmentSheet({
                     <SelectValue placeholder="Select category..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {WORK_CATEGORIES.map((category) => (
-                      <SelectItem key={category} value={category}>
-                        {category}
+                    {getCategoryOptions(workCategories).map((option) => (
+                      <SelectItem key={option.name} value={option.name}>
+                        {option.name}
                       </SelectItem>
                     ))}
                   </SelectContent>

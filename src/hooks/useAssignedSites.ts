@@ -42,7 +42,15 @@ export function useAssignedSites() {
         return (siteAccess?.map((access) => access.sites) as Site[]) || [];
       }
     },
-    enabled: !!user?.id,
+    // profile is not persisted across reloads (only user/isAuthenticated are —
+    // see authStore.ts's partialize), so on a fresh page load user.id can be
+    // truthy while profile is still null. canManage is computed from profile
+    // and closed over in queryFn, so gating only on user.id let this query
+    // fire and cache the wrong (supervisor) branch for an admin/office_manager
+    // before their profile finished loading — and that wrong result then sat
+    // cached for the default 5-minute staleTime. Waiting for profile too
+    // ensures canManage is correct on the query's first real execution.
+    enabled: !!user?.id && !!profile,
   });
 
   return { data: data ?? [], isLoading, error };

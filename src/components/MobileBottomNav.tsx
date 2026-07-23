@@ -15,6 +15,7 @@ import {
   Calendar,
   Wallet,
   Receipt,
+  Tags,
 } from "lucide-react";
 import {
   Sheet,
@@ -97,6 +98,12 @@ const moreItems: NavItem[] = [
     to: "/reports",
     label: "Reports",
     icon: <BarChart3 className="h-5 w-5" />,
+    showFor: ["admin", "office_manager"],
+  },
+  {
+    to: "/work-categories",
+    label: "Work Categories",
+    icon: <Tags className="h-5 w-5" />,
     showFor: ["admin", "office_manager"],
   },
   {

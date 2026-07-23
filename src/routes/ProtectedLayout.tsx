@@ -9,7 +9,7 @@ import { MobileBottomNav } from "@/components/MobileBottomNav";
 import {
   Loader2, LogOut, Building2, LayoutDashboard, Users,
   Briefcase, UserCog, Calendar, Wallet, Receipt,
-  Truck, Package, BarChart3
+  Truck, Package, BarChart3, Tags
 } from "lucide-react";
 
 // Navigation item type
@@ -80,7 +80,8 @@ export function ProtectedLayout() {
   // 8. Stock (Admin/Office only)
   // 9. Suppliers (Admin/Office only)
   // 10. Reports (Admin/Office only)
-  // 11. Users (Admin only)
+  // 11. Work Categories (Admin/Office only)
+  // 12. Users (Admin only)
   const navItems: NavItem[] = [
     { to: "/dashboard", label: "Dashboard", icon: <LayoutDashboard className="h-5 w-5" /> },
     { to: "/sites", label: "Sites", icon: <Building2 className="h-5 w-5" /> },
@@ -93,6 +94,7 @@ export function ProtectedLayout() {
       { to: "/stock", label: "Stock", icon: <Package className="h-5 w-5" />, adminOnly: true },
       { to: "/suppliers", label: "Suppliers", icon: <Truck className="h-5 w-5" />, adminOnly: true },
       { to: "/reports", label: "Reports", icon: <BarChart3 className="h-5 w-5" />, adminOnly: true },
+      { to: "/work-categories", label: "Work Categories", icon: <Tags className="h-5 w-5" />, adminOnly: true },
     ] : []),
     ...(isSuperAdmin ? [
       { to: "/users", label: "Users", icon: <UserCog className="h-5 w-5" />, adminOnly: true },

@@ -126,6 +126,12 @@ export function useDashboardStats() {
         monthlyIncome: monthlyIncome as number,
       };
     },
-    enabled: !!user?.id,
+    // profile is not persisted across reloads (only user/isAuthenticated
+    // are — see authStore.ts's partialize), so gating only on user?.id let
+    // isSupervisor be evaluated from a still-null profile on a fresh page
+    // load, taking the Admin/Office Manager branch (all active sites)
+    // instead of the supervisor's own-site branch. Same fix as
+    // useAssignedSites.ts: wait for profile too.
+    enabled: !!user?.id && !!profile,
   });
 }

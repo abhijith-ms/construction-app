@@ -12,6 +12,7 @@ import { StaffAttendance } from "@/routes/StaffAttendance";
 import { Expenses } from "@/routes/Expenses";
 import Payroll from "@/routes/Payroll";
 import { Users } from "@/routes/Users";
+import { WorkCategories } from "@/routes/WorkCategories";
 import PayReceipts from "@/routes/PayReceipts";
 import Suppliers from "@/routes/Suppliers";
 import SupplierDetail from "@/routes/SupplierDetail";
@@ -49,6 +50,7 @@ function App() {
           <Route path="/reports" element={<Reports />} />
           <Route path="/stock" element={<Stock />} />
           <Route path="/users" element={<Users />} />
+          <Route path="/work-categories" element={<WorkCategories />} />
           {/* Default redirect for authenticated routes - now goes to Sites */}
           <Route path="/" element={<Navigate to="/sites" replace />} />
         </Route>
