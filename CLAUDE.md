@@ -207,6 +207,7 @@ See `KNOWN_GAPS.md` for full details. Summary of open items:
 **Pending features:**
 - Mobile Sheet forms (currently using desktop Dialog on mobile)
 - Admin-configurable work categories — `work_categories` is described in earlier notes as an existing admin-configurable table, but it was never built. Work categories are currently a hardcoded `WORK_CATEGORIES` array duplicated in `src/routes/Labour.tsx` and `src/routes/Attendance.tsx`. Treat this as a pending feature, not existing infrastructure, until a real table + admin UI is built.
+- Soft-delete/correction support for `office_expenses` — there is currently no DELETE policy on this table for any role (by design), so a mistaken entry has no correction path other than an open-ended UPDATE. Needs a proper voided/corrected-by pattern instead of allowing hard deletes.
 
 ---
 
