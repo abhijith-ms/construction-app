@@ -149,7 +149,7 @@ Key Postgres functions:
 | Record pay receipts | ✓ | ✓ | ✗ |
 | View per-site P&L | ✓ | ✓ | ✗ |
 | Record expenses | ✓ | ✓ | ✗ |
-| View office expenses | ✓ | ✗ | ✗ |
+| View office expenses | ✓ | ✓ | ✗ |
 | Update stock levels | ✓ | ✓ | ✗ |
 | Create/edit users | ✓ | ✗ | ✗ |
 | Toggle supervisor wage-visibility | ✓ | ✓ | ✗ |
