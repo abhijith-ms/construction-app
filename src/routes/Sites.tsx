@@ -107,16 +107,15 @@ export function Sites() {
         setIsDialogOpen(false);
         reset();
       },
-      onError: (error) => {
-        // Display actual RLS error
+      onError: () => {
         toast.error("Failed to create site", {
-          description: error.message,
+          description: "You may not have permission to perform this action.",
         });
       },
     });
   };
 
-  const canCreate = profile?.role === "admin" || profile?.role === "office_manager";
+  const canCreate = profile?.role === "admin";
 
   return (
     <div className="space-y-6">
